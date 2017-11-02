@@ -1,0 +1,13 @@
+beautifulsoup4==4.6.0
+certifi==2017.7.27.1
+chardet==3.0.4
+coloredlogs==7.3
+humanfriendly==4.4.1
+idna==2.6
+olefile==0.44
+Pillow==4.2.1
+pkg-resources==0.0.0
+PyQt5==5.9
+requests==2.18.4
+sip==4.19.3
+urllib3==1.22
