@@ -5,13 +5,14 @@ from math import floor, ceil
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from functools import reduce
 from tqdm import tqdm
 from scipy.stats import norm
 from sklearn.model_selection import train_test_split
 from keras import backend as K
 from keras.models import Model
 from keras.layers import Input, Dense, Reshape, Lambda, Layer, Dropout
-from keras.layers import Flatten, Activation
+from keras.layers import Flatten, Activation, concatenate
 from keras.layers import Conv2D, MaxPooling2D, Conv2DTranspose, UpSampling2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import LeakyReLU
@@ -188,6 +189,27 @@ vae = Model(x, y)
 vae.compile(optimizer='rmsprop', loss=None)
 
 vae.summary()
+
+
+# build supersampler
+supersampler_input_shape = (32, 32, 3)
+supersampler_output_shape = (64, 64, 3)
+super_out_dim = reduce(lambda x, y: x * y, supersampler_output_shape, 1)
+super_input_latent = Input(shape=(latent_dim,),
+						   name="supersampler_input_latent")
+super_input_decoded = Input(shape=supersampler_input_shape,
+							name="supersampler_input_decoded")
+flat = Flatten()(super_input_decoded)
+concat = concatenate([super_input_latent, flat])
+hid = Dense(32, activation="relu", name="super_hid")(concat)
+super_output = Dense(super_out_dim, activation="relu", name="super_output")(hid)
+super_out_reshape = Reshape(target_shape=supersampler_output_shape, name="super_output_reshape")(super_output)
+y = CustomVariationalLayer()([x, x_decoded_mean_squash])
+
+supersampler = Model(inputs=(super_input_latent, super_input_decoded), outputs=super_out_reshape)
+supersampler.compile(optimizer="rmsprop", loss=None)
+
+supersampler.summary()
 
 
 print("Grabbing images...")
