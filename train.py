@@ -65,7 +65,7 @@ original_dim = image_size[0] * image_size[1] * image_size[2]
 intermediate_dim = 4000
 # intermediate_dim = int(original_dim / 4)
 # latent_dim = 512
-latent_dim = 50
+latent_dim = 16
 epochs = args.epochs
 epsilon_std = 1.0
 # number of convolutional filters to use
