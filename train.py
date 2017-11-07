@@ -237,6 +237,8 @@ vae.fit(x_train,
 		validation_data=(x_test, None),
 		callbacks=[tensorboard, checkpointer])
 
+print("saving model")
+vae.save_weights(str(ckpt_file))
 
 
 # build a model to project inputs on the latent space
