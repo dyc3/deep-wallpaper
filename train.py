@@ -264,10 +264,10 @@ figure = np.zeros((out_size[0] * n, out_size[1] * n, img_chns))
 grid_x = norm.ppf(np.linspace(0.05, 0.95, n))
 grid_y = norm.ppf(np.linspace(0.05, 0.95, n))
 
+z_sample = np.random.random_sample(size=(n*n, latent_dim,))
+x_decoded = generator.predict(z_sample)
 for i, yi in enumerate(grid_x):
 	for j, xi in enumerate(grid_y):
-		z_sample = np.random.random_sample(size=(n*n, latent_dim,))
-		x_decoded = generator.predict(z_sample)
 		out = x_decoded[i+j].reshape(out_size)
 		figure[i * out_size[0]: (i + 1) * out_size[0],
 			   j * out_size[1]: (j + 1) * out_size[1]] = out
