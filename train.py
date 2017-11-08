@@ -233,7 +233,7 @@ vae.fit(x_train,
 		shuffle=True,
 		epochs=epochs,
 		# epochs=20,
-		batch_size=24,
+		batch_size=26,
 		validation_data=(x_test, None),
 		callbacks=[tensorboard, checkpointer])
 
