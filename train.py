@@ -256,7 +256,7 @@ _x_decoded_mean_squash = decoder_mean_squash(_x_decoded_relu)
 generator = Model(decoder_input, _x_decoded_mean_squash)
 
 # display a 2D manifold
-n = 6  # number of image rows and columns images
+n = 4  # number of image rows and columns images
 out_size = image_size
 figure = np.zeros((out_size[0] * n, out_size[1] * n, img_chns))
 # linearly spaced coordinates on the unit square were transformed through the inverse CDF (ppf) of the Gaussian
