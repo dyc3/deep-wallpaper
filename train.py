@@ -209,7 +209,7 @@ image_batch *= (1/image_batch.max())
 
 
 # ignore y, we dont need it
-x_train, x_test, _, _ = train_test_split(image_batch, list(range(len(image_batch))), test_size=0.2)
+x_train, x_test, _, _ = train_test_split(image_batch, list(range(len(image_batch))), test_size=0.2, random_state=42)
 # FIXME: TEMP: train on one image only
 # x_train = x_train[:1]
 # x_test = x_train[:1]
