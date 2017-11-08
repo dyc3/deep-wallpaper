@@ -62,7 +62,7 @@ else:
 
 batch_size = 10
 original_dim = image_size[0] * image_size[1] * image_size[2]
-intermediate_dim = 4000
+intermediate_dim = 2000
 # intermediate_dim = int(original_dim / 4)
 # latent_dim = 512
 latent_dim = 16
