@@ -225,7 +225,7 @@ tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD",
 cars = tags.query("tagA == 'car'")
 cars_images = [img_to_array(load_img(str(Path("data/good/img") / x)).resize((img_cols, img_rows))) for x in cars["file"]]
 image_batch = np.array(cars_images)
-image_batch *= (1/image_batch.max())
+image_batch *= (1/255) # put colors into the range of 0 to 1
 # print(image_batch)
 
 
