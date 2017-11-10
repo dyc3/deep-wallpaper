@@ -189,7 +189,7 @@ checkpointer = ModelCheckpoint(monitor='loss', filepath=str(ckpt_file), save_bes
 
 supersampler.fit(dataX, dataY, batch_size=128, epochs=4000, verbose=1, callbacks=[earlystop, checkpointer])
 
-return
+sys.exit(0)
 # ## Test the model
 # ### Some raw visual comparisons
 
