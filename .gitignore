@@ -4,6 +4,8 @@ queued_urls.txt
 data-collector.log
 preview/
 shared/
+logs/
+ckpt/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
