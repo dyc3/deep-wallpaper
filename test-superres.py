@@ -138,7 +138,8 @@ def upscale(orig_img):
 				img_x = img_x.resize(supersampler_input_shape[:2])
 				# print(img_x.size)
 				array_x = img_to_array(img_x)
-				array_x /= 255
+				max_pixel_value = array_x.max()
+				array_x /= max_value
 
 				print("predicting at ", x, ",", y)
 				chunks_out = supersampler.predict(np.array([array_x]))
@@ -153,7 +154,7 @@ def upscale(orig_img):
 				# print(x, y, figure.shape, img_y.size, orig_img.size)
 				try:
 					array_y = img_to_array(img_y)
-					array_y *= 255
+					array_y *= max_pixel_value
 					# print(type(array_y))
 
 					# image math: blending - https://homepages.inf.ed.ac.uk/rbf/HIPR2/blend.htm
