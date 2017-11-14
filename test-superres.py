@@ -166,15 +166,9 @@ def upscale(orig_img):
 						for h in range(array_y.shape[1]): # for each column
 							source = figure[y : y+array_y.shape[0], x+h : x+h + 1]
 							target = array_y[:, h:h+1]
-							# target = target.reshape(source.shape)
 							result = np.zeros(source.shape)
 							# print("source:", source.shape, "target:", target.shape, "result:", result.shape)
 							result[:, h:h+1] = (source[:, h:h+1] * (1-blend_weights[h])) + (target[:, h:h+1] * (blend_weights[h]))
-							
-							# for c in range(3): # loop through channels
-								# print("h",h, "c",c)
-								# result[h, 0, c] = (source[h, 0, c] * (1-blend_weights[h])) + (target[h, 0, c] * (blend_weights[h]))
-								# result[0, h, c] = (source[0, h, c] * (1-blend_weights[h])) + (target[0, h, c] * (blend_weights[h]))
 							figure[y : y+array_y.shape[0], x+h : x+h + 1] = result
 					if offset == 32 and y % 32 == 0 and y % 64 != 0:
 						# print("blending Y")
@@ -182,15 +176,9 @@ def upscale(orig_img):
 						for k in range(array_y.shape[0]): # for each row
 							source = figure[y+k : y+k+1, x : x+array_y.shape[1]]
 							target = array_y[k:k+1, :]
-							target = target.reshape(source.shape)
 							result = np.zeros(source.shape)
 							# print("source:", source.shape, "target:", target.shape, "result:", result.shape)
 							result[k:k+1, :] = (source[k:k+1, :] * (1-blend_weights[h])) + (target[k:k+1, :] * (blend_weights[h]))
-
-							# for c in range(3): # loop through channels
-								# print("k",k, "c",c)
-								# result[0, k, c] = (source[0, k, c] * (1-blend_weights[k])) + (target[0, k, c] * (blend_weights[k]))
-								# result[k, 0, c] = (source[k, 0, c] * (1-blend_weights[k])) + (target[k, 0, c] * (blend_weights[k]))
 							figure[y+k : y+k+1, x : x+array_y.shape[1]] = result
 					if offset == 0:
 						# print("applying")
