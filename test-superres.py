@@ -125,6 +125,8 @@ if ckpt_file.exists():
 	print("loading model from checkpoint")
 	supersampler.load_weights(str(ckpt_file))
 
+def lerp(x, from_min, From_max, to_min, to_max):
+	return (x / b) * a
 
 def upscale(orig_img):
 	figure = np.zeros((orig_img.size[1] * 2, orig_img.size[0] * 2, 3))
@@ -160,27 +162,16 @@ def upscale(orig_img):
 					# image math: blending - https://homepages.inf.ed.ac.uk/rbf/HIPR2/blend.htm
 					# https://stackoverflow.com/questions/5919663/how-does-photoshop-blend-two-images-together
 					if len(blend_weights) == 0:
-						blend_weights = np.concatenate([np.linspace(0, 1, int(array_y.shape[0] / 2)), np.linspace(1, 0, int(array_y.shape[0] / 2))])
-					if offset == 32 and x % 32 == 0 and x % 64 != 0:
+						blend_weights = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[1] / 2)), np.linspace(1, 0, int(array_y.shape[1] / 2))]) for _ in range(array_y.shape[0])])
+						blend_weights = np.array([blend_weights for _ in range(3)])
+						blend_weights = blend_weights.reshape(array_y.shape)
+					if (offset == 32 and x % 32 == 0 and x % 64 != 0) or (offset == 32 and y % 32 == 0 and y % 64 != 0):
 						# print("blending X")
 						# print("blend_weights:", blend_weights.shape)
-						for h in range(array_y.shape[1]): # for each column
-							source = figure[y : y+array_y.shape[0], x+h : x+h + 1]
-							target = array_y[:, h:h+1]
-							result = np.zeros(source.shape)
-							# print("source:", source.shape, "target:", target.shape, "result:", result.shape)
-							result[:, h:h+1] = (source[:, h:h+1] * (1-blend_weights[h])) + (target[:, h:h+1] * (blend_weights[h]))
-							figure[y : y+array_y.shape[0], x+h : x+h + 1] = result
-					if offset == 32 and y % 32 == 0 and y % 64 != 0:
-						# print("blending Y")
-						# print("blend_weights:", blend_weights.shape)
-						for k in range(array_y.shape[0]): # for each row
-							source = figure[y+k : y+k+1, x : x+array_y.shape[1]]
-							target = array_y[k:k+1, :]
-							result = np.zeros(source.shape)
-							# print("source:", source.shape, "target:", target.shape, "result:", result.shape)
-							result[k:k+1, :] = (source[k:k+1, :] * (1-blend_weights[h])) + (target[k:k+1, :] * (blend_weights[h]))
-							figure[y+k : y+k+1, x : x+array_y.shape[1]] = result
+						source = figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] * (1 - blend_weights)
+						target = array_y * blend_weights
+						result = source + target
+						figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] = result
 					if offset == 0:
 						# print("applying")
 						figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] = array_y
