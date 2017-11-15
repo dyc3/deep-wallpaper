@@ -161,10 +161,11 @@ def upscale(orig_img):
 
 					# image math: blending - https://homepages.inf.ed.ac.uk/rbf/HIPR2/blend.htm
 					# https://stackoverflow.com/questions/5919663/how-does-photoshop-blend-two-images-together
-					if len(blend_weights) == 0:
+					if len(blend_weights) == 0 or blend_weights.shape != array_y.shape:
 						blend_weights = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[1] / 2)), np.linspace(1, 0, int(array_y.shape[1] / 2))]) for _ in range(array_y.shape[0])])
-						blend_weights = np.array([blend_weights for _ in range(3)])
-						blend_weights = blend_weights.reshape(array_y.shape)
+						blend_weights = blend_weights.reshape((*array_y.shape[:-1], 1))
+						blend_weights = np.repeat(blend_weights, repeats=3, axis=2)
+						# blend_weights = np.array([blend_weights for _ in range(3)])
 					if (offset == 32 and x % 32 == 0 and x % 64 != 0) or (offset == 32 and y % 32 == 0 and y % 64 != 0):
 						# print("blending X")
 						# print("blend_weights:", blend_weights.shape)
