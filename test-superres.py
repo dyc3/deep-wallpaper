@@ -132,7 +132,8 @@ def upscale(orig_img):
 	figure = np.zeros((orig_img.size[1] * 2, orig_img.size[0] * 2, 3))
 	new_size = (orig_img.size[0] * 2, orig_img.size[1] * 2)
 	
-	blend_weights = []
+	blend_weights_x = []
+	blend_weights_y = []
 	for offset in [0, 32]: # this makes the blending take place after the initial prediction
 		for y in range(0 + offset, new_size[1], 64):
 			for x in range(0 + offset, new_size[0], 64):
@@ -161,12 +162,31 @@ def upscale(orig_img):
 
 					# image math: blending - https://homepages.inf.ed.ac.uk/rbf/HIPR2/blend.htm
 					# https://stackoverflow.com/questions/5919663/how-does-photoshop-blend-two-images-together
-					if len(blend_weights) == 0 or blend_weights.shape != array_y.shape:
-						blend_weights = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[1] / 2)), np.linspace(1, 0, int(array_y.shape[1] / 2))]) for _ in range(array_y.shape[0])])
-						blend_weights = blend_weights.reshape((*array_y.shape[:-1], 1))
-						blend_weights = np.repeat(blend_weights, repeats=3, axis=2)
-						# blend_weights = np.array([blend_weights for _ in range(3)])
+					if len(blend_weights_x) == 0 or blend_weights_x.shape != array_y.shape:
+						print("recalculate blend_weights_x")
+						blend_weights_x = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[1] / 2)), np.linspace(1, 0, int(array_y.shape[1] / 2))]) for _ in range(array_y.shape[0])])
+						blend_weights_x = blend_weights_x.reshape((*array_y.shape[:-1], 1))
+						blend_weights_x = np.repeat(blend_weights_x, repeats=3, axis=2)
+					if len(blend_weights_y) == 0 or blend_weights_y.shape != array_y.shape:
+						print("recalculate blend_weights_y")
+						# blend_weights_y = np.rot90(blend_weights_x)
+						# blend_weights_y = blend_weights_y.reshape((*array_y.shape[:-1], 1))
+						blend_weights_y = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[0] / 2)), np.linspace(1, 0, int(array_y.shape[0] / 2))]) for _ in range(array_y.shape[1])])
+						blend_weights_y = np.rot90(blend_weights_y)
+						blend_weights_y = blend_weights_y.reshape((*array_y.shape[:-1], 1))
+						blend_weights_y = np.repeat(blend_weights_y, repeats=3, axis=2)
+						
 					if (offset == 32 and x % 32 == 0 and x % 64 != 0) or (offset == 32 and y % 32 == 0 and y % 64 != 0):
+						blend_weights = None
+						if (x % 32 == 0 and x % 64 != 0) and (y % 32 == 0 and y % 64 != 0):
+							blend_weights = blend_weights_x * blend_weights_y
+							blend_weights = np.clip(blend_weights, 0, 1)
+							# plt.imshow(blend_weights)
+							# plt.show()
+						elif x % 32 == 0 and x % 64 != 0:
+							blend_weights = blend_weights_x
+						elif y % 32 == 0 and y % 64 != 0:
+							blend_weights = blend_weights_y
 						# print("blending X")
 						# print("blend_weights:", blend_weights.shape)
 						source = figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] * (1 - blend_weights)
