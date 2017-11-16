@@ -230,10 +230,15 @@ figure = np.zeros((image_size[0] * n, image_size[1] * n, img_chns))
 grid_x = norm.ppf(np.linspace(0.05, 0.95, n))
 grid_y = norm.ppf(np.linspace(0.05, 0.95, n))
 
+generated = np.array([])
 for i, yi in enumerate(grid_x):
 	for j, xi in enumerate(grid_y):
 		z_sample = np.random.random_sample(size=(n*n, latent_dim,))
 		x_decoded = generator.predict(z_sample)
+		if len(generated) == 0:
+			generated = x_decoded
+		else:
+			generated = np.concatenate([generated, x_decoded])
 		out = x_decoded[i+j].reshape(out_size)
 		figure[i * image_size[0]: (i + 1) * image_size[0],
 			   j * image_size[1]: (j + 1) * image_size[1]] = out
@@ -241,3 +246,11 @@ for i, yi in enumerate(grid_x):
 plt.figure(figsize=(30, 18))
 plt.imshow(figure)
 plt.show()
+
+gen_save_path = Path("./gen/")
+if not gen_save_path.exists():
+	gen_save_path.mkdir()
+for gen in generated:
+	img = array_to_img(gen)
+	filename = "{}.png".format(len(list(gen_save_path.iterdir())))
+	img.save(gen_save_path / filename)
