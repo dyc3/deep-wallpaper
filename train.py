@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from keras import backend as K
 from keras.models import Model
 from keras.layers import Input, Dense, Reshape, Lambda, Layer, Dropout
-from keras.layers import Flatten, Activation, concatenate
+from keras.layers import Flatten, Activation, concatenate, add
 from keras.layers import Conv2D, MaxPooling2D, Conv2DTranspose, UpSampling2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import LeakyReLU
@@ -194,20 +194,64 @@ vae.summary()
 # build supersampler
 supersampler_input_shape = (32, 32, 3)
 supersampler_output_shape = (64, 64, 3)
-super_out_dim = reduce(lambda x, y: x * y, supersampler_output_shape, 1)
-super_input_latent = Input(shape=(latent_dim,),
-						   name="supersampler_input_latent")
-super_input_decoded = Input(shape=supersampler_input_shape,
-							name="supersampler_input_decoded")
-flat = Flatten()(super_input_decoded)
-concat = concatenate([super_input_latent, flat])
-hid = Dense(32, activation="relu", name="super_hid")(concat)
-super_output = Dense(super_out_dim, activation="relu", name="super_output")(hid)
-super_out_reshape = Reshape(target_shape=supersampler_output_shape, name="super_output_reshape")(super_output)
-y = CustomVariationalLayer()([x, x_decoded_mean_squash])
+def Res_block():
+	_input = Input(shape=(None, None, 64))
 
-supersampler = Model(inputs=(super_input_latent, super_input_decoded), outputs=super_out_reshape)
-supersampler.compile(optimizer="rmsprop", loss=None)
+	conv = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu')(_input)
+	conv = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='linear')(conv)
+
+	out = add(inputs=[_input, conv])
+	out = Activation('relu')(out)
+
+	model = Model(inputs=_input, outputs=out)
+
+	return model
+
+# super_input_latent = Input(shape=decoder_reshape.target_shape)
+# super_input_image = Input(shape=(None, None, 1), name='input')
+super_input_image = Input(shape=supersampler_input_shape, name='input')
+
+Feature = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu')(super_input_image)
+# Feature = concatenate([Feature, super_input_latent])
+Feature_out = Res_block()(Feature)
+
+# Upsampling
+Upsampling1 = Conv2D(filters=4, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Feature_out)
+Upsampling2 = Conv2DTranspose(filters=4, kernel_size=(14, 14), strides=(2, 2),
+							  padding='same', activation='relu')(Upsampling1)
+Upsampling3 = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Upsampling2)
+
+# Mulyi-scale Reconstruction
+Reslayer1 = Res_block()(Upsampling3)
+
+Reslayer2 = Res_block()(Reslayer1)
+
+# ***************//
+Multi_scale1 = Conv2D(filters=16, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Reslayer2)
+
+Multi_scale2a = Conv2D(filters=16, kernel_size=(1, 1), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale1)
+
+Multi_scale2b = Conv2D(filters=16, kernel_size=(1, 3), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale1)
+Multi_scale2b = Conv2D(filters=16, kernel_size=(3, 1), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale2b)
+
+Multi_scale2c = Conv2D(filters=16, kernel_size=(1, 5), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale1)
+Multi_scale2c = Conv2D(filters=16, kernel_size=(5, 1), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale2c)
+
+Multi_scale2d = Conv2D(filters=16, kernel_size=(1, 7), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale1)
+Multi_scale2d = Conv2D(filters=16, kernel_size=(7, 1), strides=(1, 1),
+					   padding='same', activation='relu')(Multi_scale2d)
+
+Multi_scale2 = concatenate(inputs=[Multi_scale2a, Multi_scale2b, Multi_scale2c, Multi_scale2d])
+
+super_out_conv = Conv2D(filters=3, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2)
+supersampler = Model(inputs=super_input_image, outputs=super_out_conv)
+supersampler.compile(optimizer="rmsprop", loss='mean_squared_error')
 
 supersampler.summary()
 
