@@ -24,6 +24,7 @@ from keras import metrics
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--save-construct", action="store_true", help="While constructing the output image, save images after each row processed to a folder `construct`. Useful for debugging construction process.")
 parser.add_argument("image_file", type=str, help="Path to an image file to upscale.")
 parser.add_argument("out_image_file", type=str, help="Path to output the upscaled image file.")
 args = parser.parse_args()
@@ -50,6 +51,10 @@ image_file_path = Path(args.image_file)
 if not image_file_path.exists():
 	print("File does not exist.")
 	sys.exit(2)
+
+constrct_path = Path("construct")
+if not constrct_path.exists():
+	constrct_path.mkdir();
 
 # Build model
 supersampler_input_shape = (32, 32, 3)
@@ -201,6 +206,12 @@ def upscale(orig_img):
 					print(x, y, figure.shape, img_y.size, "ValueError")
 					# raise e
 					pass
+
+			if args.save_construct:
+				img_count = len(list(constrct_path.iterdir()))
+				construct_save_path = constrct_path / "{}.png".format(img_count)
+				print("saving to {}".format(construct_save_path))
+				array_to_img(figure).save(construct_save_path)
 			
 	return array_to_img(figure)
 
