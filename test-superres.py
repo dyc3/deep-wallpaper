@@ -140,8 +140,8 @@ def upscale(orig_img):
 	blend_weights_x = []
 	blend_weights_y = []
 	for offset in [0, 32]: # this makes the blending take place after the initial prediction
-		for y in range(0 + offset, new_size[1], 64):
-			for x in range(0 + offset, new_size[0], 64):
+		for y in range(0 + offset, new_size[1], 64 - offset):
+			for x in range(0 + offset, new_size[0], 64 - offset):
 				img_x = orig_img.crop((int(x/2), int(y/2), int(x/2) + 32, int(y/2) + 32))
 				img_x = img_x.resize(supersampler_input_shape[:2])
 				# print(img_x.size)
