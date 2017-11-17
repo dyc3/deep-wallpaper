@@ -20,7 +20,7 @@ from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator, load_img
 from keras.preprocessing.image import array_to_img, img_to_array
 from keras import metrics
-from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from keras.callbacks import CallbackList, TensorBoard, ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
@@ -289,18 +289,34 @@ flow_gen = datagen.flow_from_directory("data/good", shuffle=True, target_size=im
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
 						  write_graph=True, write_images=False)
 checkpointer = ModelCheckpoint(monitor='val_loss', filepath=str(ckpt_file), save_best_only=True, verbose=1)
+checkpointer_incr = ModelCheckpoint(monitor='val_loss', filepath=str(ckpt_path / "vae_weights.{epoch:02d}.h5"), save_best_only=True, verbose=1)
 reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=20, verbose=1, mode='auto', epsilon=0.0001, cooldown=0, min_lr=0)
-earlystop = EarlyStopping(monitor='val_loss', min_delta=0, patience=1000, verbose=0, mode='auto')
+earlystop = EarlyStopping(monitor='val_loss', min_delta=0.05, patience=1000, verbose=1, mode='auto')
+callbacks = CallbackList(callbacks=[tensorboard, checkpointer, checkpointer_incr, reduceLR, earlystop])
 
 if ckpt_file.exists():
 	print("loading model from checkpoint")
 	vae.load_weights(str(ckpt_file))
 
+
+callbacks.set_model(vae)
+
+# Do training
+callbacks.on_train_begin()
 for epoch in range(epochs):
 	print("Epoch {}/{}".format(epoch, epochs))
-	for step in tqdm(range(2000)):
+	callbacks.on_epoch_begin(epoch)
+	for step in tqdm(range(200)):
+		callbacks.on_batch_begin(step)
 		batch = next(flow_gen)
 		vae.train_on_batch(batch, None)
+		callbacks.on_batch_end(step)
+	callbacks.on_epoch_end(epoch)
+
+	if vae.stop_training:
+		print("Training stopped early.")
+		break
+callbacks.on_train_end()
 
 print("saving model")
 vae.save_weights(str(ckpt_file))
