@@ -20,7 +20,7 @@ from keras.optimizers import Adam
 from keras.preprocessing.image import ImageDataGenerator, load_img
 from keras.preprocessing.image import array_to_img, img_to_array
 from keras import metrics
-from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping
+from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
@@ -264,44 +264,43 @@ flow_gen = datagen.flow_from_directory("data/good", shuffle=True, target_size=im
 # 	image_batch = np.concatenate([image_batch, new_batch])
 
 
-tags_file = Path("data/good/tags.csv")
-tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD", "tagE"])
-cars = tags.query("tagA == 'car'")
-cars_images = [img_to_array(load_img(str(Path("data/good/img") / x)).resize((img_cols, img_rows))) for x in cars["file"]]
-image_batch = np.array(cars_images)
-image_batch *= (1/255) # put colors into the range of 0 to 1
-# print(image_batch)
+# tags_file = Path("data/good/tags.csv")
+# tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD", "tagE"])
+# cars = tags.query("tagA == 'car'")
+# cars_images = [img_to_array(load_img(str(Path("data/good/img") / x)).resize((img_cols, img_rows))) for x in cars["file"]]
+# image_batch = np.array(cars_images)
+# image_batch *= (1/255) # put colors into the range of 0 to 1
+# # print(image_batch)
 
 
 
-# ignore y, we dont need it
-x_train, x_test, _, _ = train_test_split(image_batch, list(range(len(image_batch))), test_size=0.2, random_state=42)
-# FIXME: TEMP: train on one image only
-# x_train = x_train[:1]
-# x_test = x_train[:1]
-print("x_train shape: ", np.asarray(x_train).shape)
-print("x_test shape: ", np.asarray(x_test).shape)
+# # ignore y, we dont need it
+# x_train, x_test, _, _ = train_test_split(image_batch, list(range(len(image_batch))), test_size=0.2, random_state=42)
+# # FIXME: TEMP: train on one image only
+# # x_train = x_train[:1]
+# # x_test = x_train[:1]
+# print("x_train shape: ", np.asarray(x_train).shape)
+# print("x_test shape: ", np.asarray(x_test).shape)
+
+# plt.imshow(x_train[0])
+# plt.show()
 
 # keras callbacks
 tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
 						  write_graph=True, write_images=False)
 checkpointer = ModelCheckpoint(monitor='val_loss', filepath=str(ckpt_file), save_best_only=True, verbose=1)
-# earlystop = EarlyStopping(monitor='val_loss', min_delta=0, patience=1000, verbose=0, mode='auto')
+reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=20, verbose=1, mode='auto', epsilon=0.0001, cooldown=0, min_lr=0)
+earlystop = EarlyStopping(monitor='val_loss', min_delta=0, patience=1000, verbose=0, mode='auto')
 
 if ckpt_file.exists():
 	print("loading model from checkpoint")
 	vae.load_weights(str(ckpt_file))
 
-plt.imshow(x_train[0])
-plt.show()
-
-vae.fit(x_train,
-		shuffle=True,
-		epochs=epochs,
-		# epochs=20,
-		batch_size=26,
-		validation_data=(x_test, None),
-		callbacks=[tensorboard, checkpointer])
+for epoch in range(epochs):
+	print("Epoch {}/{}".format(epoch, epochs))
+	for step in tqdm(range(2000)):
+		batch = next(flow_gen)
+		vae.train_on_batch(batch, None)
 
 print("saving model")
 vae.save_weights(str(ckpt_file))
