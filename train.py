@@ -25,6 +25,7 @@ from keras.callbacks import CallbackList, TensorBoard, ModelCheckpoint, EarlySto
 parser = argparse.ArgumentParser()
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
 parser.add_argument("--epochs", type=int, default=2000)
+parser.add_argument("--resume", type=int, default=0, help="The epoch at which to resume training.")
 parser.add_argument("--batch-size", type=int, default=100)
 args = parser.parse_args()
 
@@ -305,7 +306,7 @@ callbacks.set_model(vae)
 # Do training
 vae.stop_training = False
 callbacks.on_train_begin()
-for epoch in range(epochs):
+for epoch in range(args.resume, epochs):
 	print("Epoch {}/{}".format(epoch, epochs))
 	callbacks.on_epoch_begin(epoch)
 	for step in tqdm(range(200)):
