@@ -313,7 +313,10 @@ for epoch in range(epochs):
 		batch = next(flow_gen)
 		vae.train_on_batch(batch, None)
 		callbacks.on_batch_end(step)
-	callbacks.on_epoch_end(epoch)
+	# evaluate
+	val_outs = vae.evaluate(next(flow_gen))
+	logs = {"val_loss": val_outs}
+	callbacks.on_epoch_end(epoch, logs)
 
 	if vae.stop_training:
 		print("Training stopped early.")
