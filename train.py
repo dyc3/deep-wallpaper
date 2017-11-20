@@ -25,6 +25,7 @@ from keras.callbacks import CallbackList, TensorBoard, ModelCheckpoint, EarlySto
 parser = argparse.ArgumentParser()
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
 parser.add_argument("--epochs", type=int, default=2000)
+parser.add_argument("--batch-size", type=int, default=100)
 args = parser.parse_args()
 
 ckpt_path = Path("./ckpt/")
@@ -61,7 +62,7 @@ if K.image_data_format() == 'channels_first':
 else:
 	image_size = (img_rows, img_cols, img_chns)
 
-batch_size = 10
+batch_size = args.batch_size
 original_dim = image_size[0] * image_size[1] * image_size[2]
 intermediate_dim = 2000
 # intermediate_dim = int(original_dim / 4)
