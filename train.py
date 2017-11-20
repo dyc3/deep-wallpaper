@@ -302,6 +302,7 @@ if ckpt_file.exists():
 callbacks.set_model(vae)
 
 # Do training
+vae.stop_training = False
 callbacks.on_train_begin()
 for epoch in range(epochs):
 	print("Epoch {}/{}".format(epoch, epochs))
