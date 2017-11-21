@@ -293,8 +293,8 @@ tensorboard = TensorBoard(log_dir='./logs', histogram_freq=0,
 						  write_graph=True, write_images=False)
 checkpointer = ModelCheckpoint(monitor='val_loss', filepath=str(ckpt_file), save_best_only=True, verbose=1)
 checkpointer_incr = ModelCheckpoint(monitor='val_loss', filepath=str(ckpt_path / "vae_weights.{epoch:02d}.h5"), save_best_only=True, verbose=1, period=3)
-reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=20, verbose=1, mode='auto', epsilon=0.0001, cooldown=0, min_lr=0)
-earlystop = EarlyStopping(monitor='val_loss', min_delta=0.05, patience=1000, verbose=1, mode='auto')
+reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=10, verbose=1, mode='auto', epsilon=0.0001, cooldown=0, min_lr=0)
+earlystop = EarlyStopping(monitor='val_loss', min_delta=0.000001, patience=100, verbose=1, mode='auto')
 callbacks = CallbackList(callbacks=[tensorboard, checkpointer, checkpointer_incr, reduceLR, earlystop])
 
 if ckpt_file.exists():
