@@ -26,6 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
 parser.add_argument("--epochs", type=int, default=2000)
 parser.add_argument("--resume", type=int, default=0, help="The epoch at which to resume training.")
+parser.add_argument("--epoch-steps", type=int, default=50)
 parser.add_argument("--batch-size", type=int, default=100)
 args = parser.parse_args()
 
@@ -309,7 +310,7 @@ callbacks.on_train_begin()
 for epoch in range(args.resume, epochs):
 	print("Epoch {}/{}".format(epoch, epochs))
 	callbacks.on_epoch_begin(epoch)
-	for step in tqdm(range(200)):
+	for step in tqdm(range(args.epoch_steps)):
 		callbacks.on_batch_begin(step)
 		batch = next(flow_gen)
 		vae.train_on_batch(batch, None)
