@@ -11,12 +11,28 @@ from keras.layers import Dense, GlobalAveragePooling2D
 
 tags = ["car","minimal","nature","animal","landscape","people","abstract","city","watermark","text","space","sci-fi","interior","fantasy"]
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--epochs", type=int, default=30)
+# parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training.")
+parser.add_argument("--epoch-steps", type=int, default=10)
+parser.add_argument("--batch-size", type=int, default=32)
+
+parser.add_argument("--seed", type=int, default=42)
+
+parser.add_argument("--data-dir", type=str, default="data/good/img")
+parser.add_argument("--tags-file", type=str, default="data/good/tags.csv")
+parser.add_argument("--tags-file-out", type=str, default="data/good/tags-auto.csv")
+
+parser.add_argument("img_paths", type=str, nargs="+", default=["auto"])
+args = parser.parse_args()
+
+random.seed(args.seed)
+np.random.seed(args.seed)
+
 img_width, img_height = 640, 360
-batch_size = 32
-in_tags_file = Path("data/good/tags.csv")
-out_tags_file = Path("data/good/tags_auto.csv")
-good_image_path = Path("data/good/img")
-path_gen = good_image_path.iterdir()
+in_tags_file = Path(args.tags_file)
+out_tags_file = Path(args.tags_file_out)
+good_image_path = Path(args.data_dir)
 # classes = json.load(open("imagenet1000_clsid_to_human.txt", "r"))
 # classes = pickle.load(open("imagenet1000_clsid_to_human.pkl", "rb"))
 
@@ -73,7 +89,7 @@ def batch_generator():
 	# generate batches forever
 	while True:
 		batch = []
-		for i in all_paths[batch_start : batch_start + batch_size]:
+		for i in all_paths[batch_start : batch_start + args.batch_size]:
 			img, img_tags = get_image_and_tags(i)
 			if len(img_tags) == 0:
 				continue
@@ -113,7 +129,7 @@ def build_model():
 
 	print("Input", model.input)
 	print("Output", model.output)
-	model.fit_generator(batch_generator(), steps_per_epoch=10, epochs=10)
+	model.fit_generator(batch_generator(), steps_per_epoch=args.steps_per_epoch, epochs=args.epochs)
 
 	# at this point, the top layers are well trained and we can start fine-tuning
 	# convolutional layers from inception V3. We will freeze the bottom N layers
@@ -138,7 +154,7 @@ def build_model():
 
 	# we train our model again (this time fine-tuning the top 2 inception blocks
 	# alongside the top Dense layers
-	model.fit_generator(batch_generator(), steps_per_epoch=10, epochs=10)
+	model.fit_generator(batch_generator(), steps_per_epoch=10, epochs=args.epochs)
 
 	return model
 
@@ -154,10 +170,17 @@ def predict_for(model, img_path):
 	# prediction = decode_predictions(pred_vals)
 	for pred in pred_vals:
 		for i in range(len(tags)):
-			print("{} => {.4%}".format(tags[i], pred[i]))
+			print("{} => {:.4%}".format(tags[i], float(pred[i])))
 		prediction = list(zip(tags, pred))
 		print(prediction)
 		return prediction
 
-img_path = random.choice(list(path_gen))
-predict_for(build_model(), img_path)
+path_gen = good_image_path.iterdir()
+img_paths = args.img_paths
+if len(img_paths) == 0 or img_paths[0] == "auto":
+	all_paths = list(path_gen)
+	img_paths = [random.choice(all_paths) for _ in range(3)]
+model = build_model()
+for img_path_str in img_paths:
+	img_path = Path(img_path_str)
+	predict_for(model, img_path)
