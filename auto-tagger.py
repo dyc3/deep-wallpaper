@@ -7,9 +7,11 @@ from keras.preprocessing.image import array_to_img, img_to_array
 from keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
 from keras.models import Model
 from keras.layers import Dense, GlobalAveragePooling2D
+from keras.callbacks import *
 # from keras.applications.resnet50 import ResNet50, preprocess_input, decode_predictions
 
 tags = ["car","minimal","nature","animal","landscape","people","abstract","city","watermark","text","space","sci-fi","interior","fantasy"]
+# tags = ["car","minimal","nature","animal","landscape","people","abstract","city","space","sci-fi","interior","fantasy"]
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=30)
@@ -42,7 +44,7 @@ def getTagsFromFile(img_path):
 		while line:
 			split = line.rstrip("\n").split(",")
 			if split[0] == img_path.name:
-				return split[1:]
+				return [x for x in split[1:] if x in tags]
 			line = f.readline()
 	return []
 
@@ -129,7 +131,8 @@ def build_model():
 
 	print("Input", model.input)
 	print("Output", model.output)
-	model.fit_generator(batch_generator(), steps_per_epoch=args.steps_per_epoch, epochs=args.epochs)
+	earlystop = EarlyStopping(monitor='loss', min_delta=0.1, patience=4, verbose=1, mode='auto')
+	model.fit_generator(batch_generator(), steps_per_epoch=args.steps_per_epoch, epochs=args.epochs, callbacks=[earlystop])
 
 	# at this point, the top layers are well trained and we can start fine-tuning
 	# convolutional layers from inception V3. We will freeze the bottom N layers
@@ -154,7 +157,8 @@ def build_model():
 
 	# we train our model again (this time fine-tuning the top 2 inception blocks
 	# alongside the top Dense layers
-	model.fit_generator(batch_generator(), steps_per_epoch=10, epochs=args.epochs)
+	earlystop = EarlyStopping(monitor='loss', min_delta=0.01, patience=10, verbose=1, mode='auto')
+	model.fit_generator(batch_generator(), steps_per_epoch=10, epochs=args.epochs, callbacks=[earlystop])
 
 	return model
 
