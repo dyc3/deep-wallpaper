@@ -14,7 +14,7 @@ tags = ["car","minimal","nature","animal","landscape","people","abstract","city"
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", type=int, default=30)
 # parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training.")
-parser.add_argument("--epoch-steps", type=int, default=10)
+parser.add_argument("--steps-per-epoch", type=int, default=10)
 parser.add_argument("--batch-size", type=int, default=32)
 
 parser.add_argument("--seed", type=int, default=42)
