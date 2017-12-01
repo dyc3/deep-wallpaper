@@ -173,6 +173,8 @@ def visualize(model):
 	from vis.utils import utils
 	from keras import activations
 
+	if not Path("visualization").exists():
+		Path("visualization").mkdir()
 	for layer_name in ['dense_2', 'conv2d_20', 'conv2d_22', 'conv2d_25', 'conv2d_26', 'conv2d_85', 'mixed8']:
 		# Utility to search for layer index by name. 
 		# Alternatively we can specify this as -1 since it corresponds to the last layer.
