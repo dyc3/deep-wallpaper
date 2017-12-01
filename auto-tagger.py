@@ -14,10 +14,13 @@ tags = ["car","minimal","nature","animal","landscape","people","abstract","city"
 # tags = ["car","minimal","nature","animal","landscape","people","abstract","city","space","sci-fi","interior","fantasy"]
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--train", action="store_true")
 parser.add_argument("--epochs", type=int, default=30)
 # parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training.")
 parser.add_argument("--steps-per-epoch", type=int, default=10)
 parser.add_argument("--batch-size", type=int, default=32)
+
+parser.add_argument("--visualize", action="store_true")
 
 parser.add_argument("--seed", type=int, default=42)
 
@@ -126,6 +129,9 @@ def build_model():
 	for layer in base_model.layers:
 		layer.trainable = False
 
+	return model
+
+def train_model(model):
 	# compile the model (should be done *after* setting layers to non-trainable)
 	model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
 
@@ -162,6 +168,24 @@ def build_model():
 
 	return model
 
+def visualize(model):
+	from vis.visualization import visualize_activation
+	from vis.utils import utils
+	from keras import activations
+
+	for layer_name in ['dense_2', 'conv2d_20', 'conv2d_22', 'conv2d_25', 'conv2d_26', 'conv2d_85', 'mixed8']:
+		# Utility to search for layer index by name. 
+		# Alternatively we can specify this as -1 since it corresponds to the last layer.
+		layer_idx = utils.find_layer_idx(model, layer_name)
+
+		# Swap softmax with linear
+		model.layers[layer_idx].activation = activations.linear
+		model = utils.apply_modifications(model)
+
+		# This is the output node we want to maximize.
+		filter_idx = 0
+		img = visualize_activation(model, layer_idx, filter_indices=filter_idx, verbose=True)
+		array_to_img(img).save("visualization/{}.png".format(layer_name))
 
 def predict_for(model, img_path):
 	print("predicting for:", img_path)
@@ -185,6 +209,16 @@ if len(img_paths) == 0 or img_paths[0] == "auto":
 	all_paths = list(path_gen)
 	img_paths = [random.choice(all_paths) for _ in range(3)]
 model = build_model()
+model.summary()
+if args.train:
+	model = train_model(model)
+	model.save_weights("ckpt/auto_tagger.h5")
+else:
+	model.load_weights("ckpt/auto_tagger.h5")
+
+if args.visualize:
+	visualize(model)
+
 for img_path_str in img_paths:
 	img_path = Path(img_path_str)
 	predict_for(model, img_path)
