@@ -177,6 +177,11 @@ def visualize(model):
 		Path("visualization").mkdir()
 	# for layer_name in ['dense_2', 'conv2d_20', 'conv2d_22', 'conv2d_25', 'conv2d_26', 'conv2d_85', 'mixed8']:
 	for layer_name in [layer.name for layer in model.layers]:
+		save_path = Path("visualization/{}.png".format(layer_name))
+		if save_path.exists():
+			print("{} already visualized".format(layer_name))
+			continue
+
 		# Utility to search for layer index by name. 
 		# Alternatively we can specify this as -1 since it corresponds to the last layer.
 		layer_idx = utils.find_layer_idx(model, layer_name)
@@ -188,7 +193,8 @@ def visualize(model):
 		# This is the output node we want to maximize.
 		filter_idx = 0
 		img = visualize_activation(model, layer_idx, filter_indices=filter_idx, verbose=True)
-		array_to_img(img).save("visualization/{}.png".format(layer_name))
+		array_to_img(img).save(save_path)
+		print("saved to {}".format(str(save_path)))
 
 def predict_for(model, img_path):
 	print("predicting for:", img_path)
