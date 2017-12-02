@@ -6,6 +6,7 @@ preview/
 shared/
 logs/
 ckpt/
+visualization/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
