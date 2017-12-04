@@ -173,11 +173,13 @@ def visualize(model):
 	from vis.utils import utils
 	from keras import activations
 
-	if not Path("visualization").exists():
-		Path("visualization").mkdir()
-	# for layer_name in ['dense_2', 'conv2d_20', 'conv2d_22', 'conv2d_25', 'conv2d_26', 'conv2d_85', 'mixed8']:
+	visualization_path = Path("visualization/auto-tagger/")
+
+	if not visualization_path.exists():
+		visualization_path.mkdir(parents=True)
+	# visualize each layer
 	for layer_name in [layer.name for layer in model.layers]:
-		save_path = Path("visualization/{}.png".format(layer_name))
+		save_path = visualization_path / "{}.png".format(layer_name)
 		if save_path.exists():
 			print("{} already visualized".format(layer_name))
 			continue
