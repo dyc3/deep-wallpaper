@@ -185,7 +185,7 @@ def visualize(model):
 			print("{} already visualized".format(layer_name))
 			continue
 
-		layer_idx = utils.find_layer_idx(model, model.output().name)
+		layer_idx = utils.find_layer_idx(model, "dense_2")
 
 		# Swap softmax with linear
 		model.layers[layer_idx].activation = activations.linear
