@@ -201,6 +201,9 @@ def visualize(model):
 		if save_path.exists():
 			print("{} already visualized".format(layer_name))
 			continue
+		if any([x in layer_name for x in ["batch_normalization", "input"]]):
+			print("skipping visualization of {}".format(layer_name))
+			continue
 
 		# Utility to search for layer index by name. 
 		# Alternatively we can specify this as -1 since it corresponds to the last layer.
