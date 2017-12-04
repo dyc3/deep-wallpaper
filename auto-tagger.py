@@ -239,6 +239,9 @@ if len(img_paths) == 0 or img_paths[0] == "auto":
 model = build_model()
 model.summary()
 if args.train:
+	if model_path.exists():
+		print("Loading weights to continue training. To train a brand new model, delete or rename {}".format(str(model_path)))
+		model.load_weights(str(model_path))	
 	model = train_model(model)
 	model.save_weights(str(model_path))
 else:
