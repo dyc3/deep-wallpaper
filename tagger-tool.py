@@ -31,6 +31,8 @@ class DataTaggerWindow(Ui_MainWindow):
 		self.last_image_path = None
 		self.current_image_path = None
 
+		self.img_tags = []
+
 		self.setup()
 
 	def setup(self):
@@ -61,6 +63,7 @@ class DataTaggerWindow(Ui_MainWindow):
 			self.hlayTags.addWidget(tag_btn)
 
 		self.nextImg()
+		self.nextImgUntagged()
 
 	def nextImg(self):
 		print("finding next image")
@@ -84,9 +87,15 @@ class DataTaggerWindow(Ui_MainWindow):
 		img.close()
 
 		# read tags
-		img_tags = self.getTagsFromFile(self.current_image_path)
-		print("img tags: {}".format(img_tags))
-		self.applyTagsToButtons(img_tags)
+		self.img_tags = self.getTagsFromFile(self.current_image_path)
+		print("img tags: {}".format(self.img_tags))
+		self.applyTagsToButtons(self.img_tags)
+
+	def nextImgUntagged(self):
+		while len(self.img_tags) > 0:
+			self.nextImg()
+			if len(self.img_tags) > 0:
+				print("img already tagged, skipping")
 
 	def displayImage(self, img):
 		self.scene.clear()
