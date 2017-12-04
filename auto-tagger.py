@@ -192,9 +192,7 @@ def visualize(model):
 		model.layers[layer_idx].activation = activations.linear
 		model = utils.apply_modifications(model)
 
-		# This is the output node we want to maximize.
-		filter_idx = 0
-		img = visualize_activation(model, layer_idx, filter_indices=filter_idx, verbose=True)
+		img = visualize_activation(model, layer_idx, verbose=True)
 		array_to_img(img).save(save_path)
 		print("saved to {}".format(str(save_path)))
 
