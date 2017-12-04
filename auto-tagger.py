@@ -177,6 +177,24 @@ def visualize(model):
 
 	if not visualization_path.exists():
 		visualization_path.mkdir(parents=True)
+
+	# visualize each class
+	for t in range(len(tags)):
+		save_path = visualization_path / "out_{}.png".format(tags[t])
+		if save_path.exists():
+			print("{} already visualized".format(layer_name))
+			continue
+
+		layer_idx = utils.find_layer_idx(model, model.output().name)
+
+		# Swap softmax with linear
+		model.layers[layer_idx].activation = activations.linear
+		model = utils.apply_modifications(model)
+
+		img = visualize_activation(model, layer_idx, filter_indices=t, verbose=True)
+		array_to_img(img).save(save_path)
+		print("saved to {}".format(str(save_path)))
+
 	# visualize each layer
 	for layer_name in [layer.name for layer in model.layers]:
 		save_path = visualization_path / "{}.png".format(layer_name)
