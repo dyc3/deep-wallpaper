@@ -232,6 +232,7 @@ def predict_for(model, img_path):
 
 path_gen = good_image_path.iterdir()
 img_paths = args.img_paths
+model_path = Path("ckpt/auto_tagger.h5")
 if len(img_paths) == 0 or img_paths[0] == "auto":
 	all_paths = list(path_gen)
 	img_paths = [random.choice(all_paths) for _ in range(3)]
@@ -239,9 +240,9 @@ model = build_model()
 model.summary()
 if args.train:
 	model = train_model(model)
-	model.save_weights("ckpt/auto_tagger.h5")
+	model.save_weights(str(model_path))
 else:
-	model.load_weights("ckpt/auto_tagger.h5")
+	model.load_weights(str(model_path))
 
 if args.visualize:
 	visualize(model)
