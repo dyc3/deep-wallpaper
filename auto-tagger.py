@@ -182,7 +182,7 @@ def visualize(model):
 	for t in range(len(tags)):
 		save_path = visualization_path / "out_{}.png".format(tags[t])
 		if save_path.exists():
-			print("{} already visualized".format(layer_name))
+			print("{} already visualized".format(tag[t]))
 			continue
 
 		layer_idx = utils.find_layer_idx(model, "dense_2")
