@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# found this paper: https://web.stanford.edu/class/cs221/2017/restricted/p-final/dkimball/final.pdf
+# code from paper: https://github.com/karenyang/MultiGAN
+
 import h5py, argparse, sys, os, pandas
 from math import floor, ceil
 import numpy as np
@@ -32,8 +35,7 @@ parser.add_argument("--train", action="store_true")
 parser.add_argument("--epochs", type=int, default=2000)
 parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training.")
 parser.add_argument("--steps-per-epoch", type=int, default=64)
-# parser.add_argument("--batch-size", type=int, default=32)
-parser.add_argument("--batch-size", type=int, default=6)
+parser.add_argument("--batch-size", type=int, default=32)
 
 parser.add_argument("--data-dir", type=str, default="data/good/img")
 parser.add_argument("--tags-file", type=str, default="data/good/tags.csv")
@@ -43,6 +45,7 @@ args = parser.parse_args()
 
 img_width, img_height, img_chns = 128, 72, 3
 tags_file = Path("data/good/tags.csv")
+np.random.seed(42)
 
 visualization_dir = Path("visualization/preview/ACGAN/")
 if not visualization_dir.exists():
@@ -170,6 +173,7 @@ def build_generator(latent_size=100, num_classes=2):
 
 	cls = Flatten()(Embedding(num_classes, latent_size, embeddings_initializer='glorot_normal')(image_class))
 	cls = Dense(latent_size)(cls)
+	# cls = Dense(latent_size)(image_class)
 
 	# hadamard product between z-space and a class conditional embedding
 	h = multiply([latent, cls])
@@ -224,10 +228,10 @@ def build_combined(generator, discriminator, latent_size=100, num_classes=2):
 	adam_lr = 0.0002
 	adam_beta_1 = 0.5
 
-	discriminator.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1), loss=['binary_crossentropy', 'sparse_categorical_crossentropy'])
+	discriminator.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1), loss=['binary_crossentropy', 'categorical_crossentropy'])
 
 	latent = Input(shape=(latent_size, ))
-	image_class = Input(shape=(len(tags),), dtype='float32')
+	image_class = Input(shape=(num_classes,), dtype='float32')
 
 	# get a fake image
 	fake = generator([latent, image_class])
@@ -238,7 +242,7 @@ def build_combined(generator, discriminator, latent_size=100, num_classes=2):
 	combined = Model([latent, image_class], [fake, aux])
 
 	print('Combined model:')
-	combined.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1), loss=['binary_crossentropy', 'sparse_categorical_crossentropy'])
+	combined.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1), loss=['binary_crossentropy', 'categorical_crossentropy'])
 	combined.summary()
 
 	return combined
@@ -280,9 +284,9 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 			aux_y = np.concatenate((label_batch, sampled_labels), axis=0)
 			# aux_y = aux_y[:, 0].reshape(-1, 1)
 
-			print(y.shape)
-			print(aux_y.shape)
-			print(aux_y[0])
+			# print(y.shape)
+			# print(aux_y.shape)
+			# print(aux_y[0])
 
 			# see if the discriminator can figure itself out...
 			epoch_disc_loss.append(discriminator.train_on_batch(x, {"generation":y, "auxiliary":aux_y}))
