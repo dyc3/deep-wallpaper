@@ -122,7 +122,7 @@ def batch_generator():
 		batch = []
 		checked = 0
 		while len(batch) < args.batch_size:
-			img_path = all_paths[batch_start + checked]
+			img_path = all_paths[(batch_start + checked) % (len(all_paths) - 1)]
 			img_tags = getTagsFromFile(img_path)
 			checked += 1
 			if len(img_tags) == 0:
@@ -397,12 +397,12 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 		# display generated images, white separator, real images
 		img = np.concatenate(
 			(generated_images,
-			 np.repeat(np.ones_like(real_images[:1]), num_rows, axis=0),
+			#  np.repeat(np.ones_like(real_images[:1]), num_rows, axis=0),
 			 real_images))
 
 		# arrange them into a grid
 		print(img.shape)
-		img = np.concatenate(np.hstack(np.split(img, 14)), axis=1)
+		img = np.concatenate(np.hstack(np.split(img, 43)), axis=1) * 127.5 + 127.5
 		# img = np.concatenate([r.reshape(-1, img_height)
 		# 					   for r in np.split(img, 3)
 		# 					   ], axis=-1) * 127.5 + 127.5
@@ -428,6 +428,9 @@ discriminator.summary()
 combined = build_combined(generator, discriminator, num_classes=len(tags))
 
 if args.train:
+	if args.resume > 1:
+		generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
+		discriminator.save_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
 	train(generator, discriminator, num_classes=len(tags))
 
 if args.generate:
