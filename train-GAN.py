@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from functools import reduce
 from tqdm import tqdm
+from collections import defaultdict
+try:
+	import cPickle as pickle
+except ImportError:
+	import pickle
 from scipy.stats import norm
 from sklearn.model_selection import train_test_split
 from keras import backend as K
@@ -115,15 +120,18 @@ def batch_generator():
 	# generate batches forever
 	while True:
 		batch = []
-		for i in all_paths[batch_start : batch_start + args.batch_size]:
-			img_tags = getTagsFromFile(i)
+		checked = 0
+		while len(batch) < args.batch_size:
+			img_path = all_paths[batch_start + checked]
+			img_tags = getTagsFromFile(img_path)
+			checked += 1
 			if len(img_tags) == 0:
 				continue
 			img_tags = tags_to_embeddings(img_tags)
-			img = img_to_array(load_img(i).resize((img_width, img_height)))
+			img = img_to_array(load_img(img_path).resize((img_width, img_height)))
 			batch.append((img, img_tags))
 
-		batch_start += args.batch_size
+		batch_start += checked
 		if batch_start >= len(all_paths):
 			batch_start = 0
 
@@ -249,6 +257,9 @@ def build_combined(generator, discriminator, latent_size=100, num_classes=2):
 
 def train(generator, discriminator, latent_size=100, num_classes=2):
 	batch_gen = batch_generator()
+	train_history = defaultdict(list)
+	test_history = defaultdict(list)
+
 	for epoch in range(args.resume, args.epochs + 1):
 		progress_bar = Progbar(target=args.steps_per_epoch * args.batch_size)
 
@@ -322,7 +333,7 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 		generated_images = generator.predict([noise, sampled_labels], verbose=False)
 
 		x = np.concatenate((x_test, generated_images))
-		y = np.array([1] * num_test + [0] * num_test)
+		y = np.array([1] * len(x_test) + [0] * num_test)
 		aux_y = np.concatenate((y_test, sampled_labels), axis=0)
 
 		# see if the discriminator can figure itself out...
@@ -332,12 +343,12 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 
 		# make new noise
 		noise = np.random.uniform(-1, 1, (2 * num_test, latent_size))
-		sampled_labels = np.random.randint(0, num_classes, 2 * num_test)
+		sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(2 * num_test)])
 
 		trick = np.ones(2 * num_test)
 
 		generator_test_loss = combined.evaluate(
-			[noise, sampled_labels.reshape((-1, 1))],
+			[noise, sampled_labels],
 			[trick, sampled_labels], verbose=False)
 
 		generator_train_loss = np.mean(np.array(epoch_gen_loss), axis=0)
@@ -372,29 +383,36 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 		noise = np.random.uniform(-1, 1, (num_rows * num_classes, latent_size))
 
 		sampled_labels = np.array([
-			[i] * num_rows for i in range(num_classes)
-		]).reshape(-1, 1)
+			list(tags_to_embeddings([tag])) * num_rows for tag in tags
+		]).reshape(-1, num_classes)
 
 		# get a batch to display
 		generated_images = generator.predict([noise, sampled_labels], verbose=0)
 
-		# prepare real images sorted by class label
-		real_labels = y_train[(epoch - 1) * num_rows * num_classes : epoch * num_rows * num_classes]
+		# prepare real images not sorted by class label
+		# real_images, real_labels = zip(*next(batch_gen))
+		real_images, real_labels = x_test, y_test
 		indices = np.argsort(real_labels, axis=0)
-		real_images = x_train[(epoch - 1) * num_rows * num_classes : epoch * num_rows * num_classes][indices]
 
 		# display generated images, white separator, real images
 		img = np.concatenate(
 			(generated_images,
-			 np.repeat(np.ones_like(x_train[:1]), num_rows, axis=0),
+			 np.repeat(np.ones_like(real_images[:1]), num_rows, axis=0),
 			 real_images))
 
 		# arrange them into a grid
-		img = (np.concatenate([r.reshape(-1, img_height)
-							   for r in np.split(img, 2 * num_classes + 1)
-							   ], axis=-1) * 127.5 + 127.5).astype(np.uint8)
+		print(img.shape)
+		img = np.concatenate(np.hstack(np.split(img, 14)), axis=1)
+		# img = np.concatenate([r.reshape(-1, img_height)
+		# 					   for r in np.split(img, 3)
+		# 					   ], axis=-1) * 127.5 + 127.5
+		# img = (np.concatenate([r.reshape(-1, img_height)
+		# 					   for r in np.array_split(img, args.batch_size + 1)
+		# 					   ], axis=-2) * 127.5 + 127.5).astype(np.uint8)
 
-		array_to_img(img).save(visualization_dir / 'plot_epoch_{0:04d}_generated.png'.format(epoch))
+		preview_img_path = str(visualization_dir / 'plot_epoch_{0:04d}_generated.png'.format(epoch))
+		array_to_img(img).save(preview_img_path)
+		print("saved preview to {}".format(preview_img_path))
 
 	pickle.dump({'train': train_history, 'test': test_history}, open('acgan-history.pkl', 'wb'))
 
