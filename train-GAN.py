@@ -313,6 +313,7 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 		# evaluate the testing loss here
 
 		# generate a new batch of noise
+		num_test = args.batch_size
 		noise = np.random.uniform(-1, 1, (num_test, latent_size))
 
 		# sample some labels from p_c and generate images from them
