@@ -129,6 +129,8 @@ def batch_generator():
 				continue
 			img_tags = tags_to_embeddings(img_tags)
 			img = img_to_array(load_img(img_path).resize((img_width, img_height)))
+			img /= 127.5
+			img -= 1
 			batch.append((img, img_tags))
 
 		batch_start += checked
@@ -273,6 +275,7 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 			image_batch, label_batch = zip(*this_batch)
 			image_batch = np.array(image_batch)
 			label_batch = np.array(label_batch)
+			print("image_batch: min: {}, max: {}".format(image_batch.min(), image_batch.max()))
 
 			# generate a new batch of noise
 			noise = np.random.uniform(-1, 1, (args.batch_size, latent_size))
