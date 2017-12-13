@@ -147,7 +147,7 @@ def upscale(orig_img):
 				# print(img_x.size)
 				array_x = img_to_array(img_x)
 				max_pixel_value = array_x.max()
-				array_x /= max_value
+				array_x /= max_pixel_value
 
 				print("predicting at ", x, ",", y)
 				chunks_out = supersampler.predict(np.array([array_x]))
