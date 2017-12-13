@@ -433,7 +433,7 @@ combined = build_combined(generator, discriminator, num_classes=len(tags))
 if args.train:
 	if args.resume > 1:
 		generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
-		discriminator.save_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
+		discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
 	train(generator, discriminator, num_classes=len(tags))
 
 if args.generate:
