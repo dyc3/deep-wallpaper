@@ -11,6 +11,7 @@ from pathlib import Path
 from functools import reduce
 from tqdm import tqdm
 from collections import defaultdict
+import glob, re
 try:
 	import cPickle as pickle
 except ImportError:
@@ -46,11 +47,11 @@ parser.add_argument("--data-dir", type=str, default="data/good/img")
 parser.add_argument("--tags-file", type=str, default="data/good/tags.csv")
 
 parser.add_argument("--generate", type=int, default=0)
+parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.")
 args = parser.parse_args()
 
 img_width, img_height, img_chns = 128, 72, 3
 tags_file = Path("data/good/tags.csv")
-np.random.seed(42)
 
 visualization_dir = Path("visualization/preview/ACGAN/")
 if not visualization_dir.exists():
@@ -59,6 +60,10 @@ if not visualization_dir.exists():
 ckpt_dir = Path("ckpt/")
 if not ckpt_dir.exists():
 	ckpt_dir.mkdir(parents=True)
+
+gen_dir = Path("gen/")
+if not gen_dir.exists():
+	gen_dir.mkdir(parents=True)
 
 # tags_file = Path("data/good/tags.csv")
 # tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD", "tagE"])
@@ -111,6 +116,14 @@ def tags_to_embeddings(img_tags):
 
 def random_tags():
 	return np.random.choice(tags, size=np.random.randint(1, len(tags)))
+
+def get_latest_epoch():
+	# search = str(ckpt_dir) + "/params_generator_epoch_[0-9]+.hdf5(|.gz)"
+	# print("searching with", search)
+	# matches = glob.glob(search)
+	matches = sorted(ckpt_dir.glob("params_generator_epoch_*"))
+	latest_epoch = re.findall(r'[0-9]+', str(matches[-1]))
+	return int(latest_epoch[0])
 
 def batch_generator():
 	data_dir = Path(args.data_dir)
@@ -430,11 +443,31 @@ discriminator.summary()
 combined = build_combined(generator, discriminator, num_classes=len(tags))
 
 if args.train:
+	np.random.seed(42)
 	if args.resume > 1:
 		generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
 		discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(args.resume-1)), True)
 	train(generator, discriminator, num_classes=len(tags))
 
 if args.generate:
-	pass
+	latent_size = 100
+	target_epoch = get_latest_epoch()
+	print("loading generator from epoch {}".format(target_epoch))
+	generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(target_epoch)), True)
+
+	noise = np.random.uniform(-1, 1, (args.generate, latent_size))
+	if len(args.tags) == 0:
+		print("using random tags")
+		sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(args.generate)])
+	else:
+		print("using provided tags:", args.tags)
+		sampled_labels = np.array([tags_to_embeddings(args.tags) for _ in range(args.generate)])
+	generated_images = generator.predict([noise, sampled_labels], verbose=0)
+	generated_images = generated_images * 127.5 + 127.5
+	
+	for array in generated_images:
+		i = 0
+		while (gen_dir / "gen{}.png".format(i)).exists():
+			i += 1
+		array_to_img(array).save(str(gen_dir / "gen{}.png".format(i)))
 
