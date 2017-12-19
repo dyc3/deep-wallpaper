@@ -46,6 +46,9 @@ parser.add_argument("--batch-size", type=int, default=32)
 parser.add_argument("--data-dir", type=str, default="data/good/img")
 parser.add_argument("--tags-file", type=str, default="data/good/tags.csv")
 
+parser.add_argument("--export-full-model", type=str)
+parser.add_argument("--export-model-json", type=str)
+
 parser.add_argument("--generate", type=int, default=0)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.")
 args = parser.parse_args()
@@ -441,6 +444,20 @@ generator.summary()
 print("Discriminator:")
 discriminator.summary()
 combined = build_combined(generator, discriminator, num_classes=len(tags))
+
+if args.export_full_model:
+	assert len(args.export_full_model) > 0
+	target_epoch = get_latest_epoch()
+	print("exporting model from epoch {}".format(target_epoch))
+	generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(target_epoch)), True)
+	generator.save(args.export_full_model.format(target_epoch))
+
+if args.export_model_json:
+	assert len(args.export_model_json) > 0
+	print("exporting model as JSON")
+	model_json = generator.to_json()
+	with open(args.export_model_json, mode="w") as f:
+		f.write(model_json)
 
 if args.train:
 	np.random.seed(42)
