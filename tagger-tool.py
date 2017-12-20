@@ -79,6 +79,13 @@ class DataTaggerWindow(Ui_MainWindow):
 		self.last_image_path = self.current_image_path
 		self.current_image_path = next(self.path_gen)
 		print("next image: {}".format(self.current_image_path))
+
+		# read tags
+		self.img_tags = self.getTagsFromFile(self.current_image_path)
+		print("img tags: {}".format(self.img_tags))
+
+	def applyNextImage(self):
+		print("applying image to GUI")
 		img = Image.open(self.current_image_path)
 		img = img.convert("RGB")
 		width, height = img.size
@@ -86,9 +93,6 @@ class DataTaggerWindow(Ui_MainWindow):
 		self.displayImage(img)
 		img.close()
 
-		# read tags
-		self.img_tags = self.getTagsFromFile(self.current_image_path)
-		print("img tags: {}".format(self.img_tags))
 		self.applyTagsToButtons(self.img_tags)
 
 	def nextImgUntagged(self):
@@ -96,6 +100,7 @@ class DataTaggerWindow(Ui_MainWindow):
 			self.nextImg()
 			if len(self.img_tags) > 0:
 				print("img already tagged, skipping")
+		self.applyNextImage()
 
 	def displayImage(self, img):
 		self.scene.clear()
@@ -128,9 +133,11 @@ class DataTaggerWindow(Ui_MainWindow):
 			img_tags = self.getTagsFromButtons()
 			self.commitTagsToFile(self.current_image_path, img_tags)
 			self.nextImg()
+			self.applyNextImage()
 		elif e.key() == Qt.Key_Space:
 			print("skipping")
 			self.nextImg()
+			self.applyNextImage()
 		elif e.key() == Qt.Key_Backspace:
 			self.undo()
 
@@ -180,6 +187,7 @@ class DataTaggerWindow(Ui_MainWindow):
 		print("going back {} -> {}".format(self.current_image_path, self.last_image_path))
 		self.current_image_path = self.last_image_path
 		self.nextImg()
+		self.applyNextImage()
 
 if __name__ == "__main__":
 	app = QApplication(sys.argv)
