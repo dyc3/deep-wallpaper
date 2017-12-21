@@ -39,7 +39,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--epochs", type=int, default=2000)
-parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training.")
+parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training. (Will load from the previous epoch)")
 parser.add_argument("--steps-per-epoch", type=int, default=64)
 parser.add_argument("--batch-size", type=int, default=32)
 
