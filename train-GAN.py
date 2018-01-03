@@ -50,7 +50,7 @@ parser.add_argument("--export-full-model", type=str)
 parser.add_argument("--export-model-json", type=str)
 
 parser.add_argument("--generate", type=int, default=0)
-parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.")
+parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
 args = parser.parse_args()
 
 img_width, img_height, img_chns = 128, 72, 3
