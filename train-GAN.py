@@ -51,6 +51,8 @@ parser.add_argument("--export-model-json", type=str)
 
 parser.add_argument("--generate", type=int, default=0)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
+
+parser.add_argument("--visualize", type=str, choices=["epochs", "layers"])
 args = parser.parse_args()
 
 img_width, img_height, img_chns = 128, 72, 3
@@ -488,3 +490,28 @@ if args.generate:
 			i += 1
 		array_to_img(array).save(str(gen_dir / "gen{}.png".format(i)))
 
+if args.visualize == "epochs":
+	latent_size = 100
+	noise = np.random.uniform(-1, 1, (1, latent_size))
+	if len(args.tags) == 0:
+		print("using random tags")
+		sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(1)])
+	else:
+		print("using provided tags:", args.tags)
+		sampled_labels = np.array([tags_to_embeddings(args.tags) for _ in range(1)])
+	for epoch in range(args.epochs):
+		print("visualizing epoch {}".format(epoch))
+		current_model_file = ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)
+		if not current_model_file.exists():
+			print("missing checkpoint for epoch {}".format(epoch))
+			continue
+
+		generator.load_weights(str(current_model_file), True)
+		generated_images = generator.predict([noise, sampled_labels], verbose=0)
+		generated_images = generated_images * 127.5 + 127.5
+		
+		for array in generated_images:
+			image_path = visualization_dir / "vis_epoch_{}.png".format(epoch)
+			array_to_img(array).save(str(image_path))
+elif args.visualize == "layers":
+	print("Not yet implemented")
