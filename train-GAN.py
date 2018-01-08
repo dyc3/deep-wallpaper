@@ -511,7 +511,7 @@ if args.visualize == "epochs":
 		generated_images = generated_images * 127.5 + 127.5
 		
 		for array in generated_images:
-			image_path = visualization_dir / "vis_epoch_{}.png".format(epoch)
+			image_path = visualization_dir / "vis_epoch_{0:04d}.png".format(epoch)
 			array_to_img(array).save(str(image_path))
 elif args.visualize == "layers":
 	print("Not yet implemented")
