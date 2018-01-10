@@ -36,6 +36,7 @@ from keras.callbacks import CallbackList, TensorBoard, ModelCheckpoint, EarlySto
 tags = ["car","minimal","nature","animal","landscape","people","abstract","city","watermark","text","space","sci-fi","interior","fantasy"]
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--show-summary", help="Prints summaries of the model's architecture.", action="store_true")
 parser.add_argument("--clean", help="remove the currently trained model", action="store_true")
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--epochs", type=int, default=2000)
@@ -169,7 +170,8 @@ def build_generator(latent_size=100, num_classes=2):
 				   activation='tanh',
 				   kernel_initializer='glorot_normal'))
 	
-	cnn.summary()
+	if args.show_summary:
+		cnn.summary()
 
 	# this is the z space commonly refered to in GAN papers
 	latent = Input(shape=(latent_size, ), dtype="float32")
@@ -246,9 +248,10 @@ def build_combined(generator, discriminator, latent_size=100, num_classes=2):
 	fake, aux = discriminator(fake)
 	combined = Model([latent, image_class], [fake, aux])
 
-	print('Combined model:')
 	combined.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1), loss=['binary_crossentropy', 'categorical_crossentropy'])
-	combined.summary()
+	if args.show_summary:
+		print('Combined model:')
+		combined.summary()
 
 	return combined
 
@@ -375,10 +378,11 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 print("args: {}".format(args))
 
 generator, discriminator = build_generator(num_classes=len(tags)), build_discriminator(num_classes=len(tags))
-print("Generator:")
-generator.summary()
-print("Discriminator:")
-discriminator.summary()
+if args.show_summary:
+	print("Generator:")
+	generator.summary()
+	print("Discriminator:")
+	discriminator.summary()
 combined = build_combined(generator, discriminator, num_classes=len(tags))
 
 if args.export_full_model:
