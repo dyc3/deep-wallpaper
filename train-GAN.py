@@ -70,10 +70,6 @@ gen_dir = Path("gen/")
 if not gen_dir.exists():
 	gen_dir.mkdir(parents=True)
 
-# tags_file = Path("data/good/tags.csv")
-# tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD", "tagE"])
-# cars = tags.query("tagA == 'car'")
-
 def load_tags():
 	tags_file = Path(args.tags_file)
 	tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD", "tagE"])
@@ -88,16 +84,6 @@ def getTagsFromFile(img_path):
 				return [x for x in split[1:] if x in tags]
 			line = f.readline()
 	return []
-
-# def get_image_and_tags(img_file):
-# 	assert isinstance(img_file, str) or isinstance(img_file, Path)
-# 	if isinstance(img_file, str):
-# 		img_file = Path(img_file)
-# 	assert img_file.exists(), "{} does not exist.".format(img_file)
-
-# 	img = img_to_array(load_img(img_file))
-# 	tags = img_tags.query("file == '{}'".format(str(img_file.name)))
-# 	return img, tags
 
 def get_image_and_tags(img_file):
 	assert isinstance(img_file, str) or isinstance(img_file, Path)
@@ -123,9 +109,6 @@ def random_tags():
 	return np.random.choice(tags, size=np.random.randint(1, len(tags)))
 
 def get_latest_epoch():
-	# search = str(ckpt_dir) + "/params_generator_epoch_[0-9]+.hdf5(|.gz)"
-	# print("searching with", search)
-	# matches = glob.glob(search)
 	matches = sorted(ckpt_dir.glob("params_generator_epoch_*"))
 	latest_epoch = re.findall(r'[0-9]+', str(matches[-1]))
 	return int(latest_epoch[0])
@@ -201,7 +184,6 @@ def build_generator(latent_size=100, num_classes=2):
 
 	cls = Flatten()(Embedding(num_classes, latent_size, embeddings_initializer='glorot_normal')(image_class))
 	cls = Dense(latent_size)(cls)
-	# cls = Dense(latent_size)(image_class)
 
 	# hadamard product between z-space and a class conditional embedding
 	h = multiply([latent, cls])
@@ -313,11 +295,6 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 			y = np.array([soft_one] * this_batch_size + [soft_zero] * args.batch_size)
 			y = y.reshape(-1, 1)
 			aux_y = np.concatenate((label_batch, sampled_labels), axis=0)
-			# aux_y = aux_y[:, 0].reshape(-1, 1)
-
-			# print(y.shape)
-			# print(aux_y.shape)
-			# print(aux_y[0])
 
 			# see if the discriminator can figure itself out...
 			epoch_disc_loss.append(discriminator.train_on_batch(x, {"generation":y, "auxiliary":aux_y}))
@@ -417,19 +394,11 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 		# display generated images, white separator, real images
 		img = np.concatenate(
 			(generated_images,
-			#  np.repeat(np.ones_like(real_images[:1]), num_rows, axis=0),
 			 real_images))
 
 		# arrange them into a grid
 		print(img.shape)
 		img = np.concatenate(np.hstack(np.split(img, 43)), axis=1) * 127.5 + 127.5
-		# img = np.concatenate([r.reshape(-1, img_height)
-		# 					   for r in np.split(img, 3)
-		# 					   ], axis=-1) * 127.5 + 127.5
-		# img = (np.concatenate([r.reshape(-1, img_height)
-		# 					   for r in np.array_split(img, args.batch_size + 1)
-		# 					   ], axis=-2) * 127.5 + 127.5).astype(np.uint8)
-
 		preview_img_path = str(visualization_dir / 'plot_epoch_{0:04d}_generated.png'.format(epoch))
 		array_to_img(img).save(preview_img_path)
 		print("saved preview to {}".format(preview_img_path))
@@ -437,8 +406,6 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 	pickle.dump({'train': train_history, 'test': test_history}, open('acgan-history.pkl', 'wb'))
 
 print("args: {}".format(args))
-
-# img_tags = load_tags()
 
 generator, discriminator = build_generator(num_classes=len(tags)), build_discriminator(num_classes=len(tags))
 print("Generator:")
