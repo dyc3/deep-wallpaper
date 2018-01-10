@@ -375,34 +375,6 @@ def train(generator, discriminator, latent_size=100, num_classes=2):
 		generator.save_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)), True)
 		discriminator.save_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
 
-		# generate some digits to display
-		num_rows = 10
-		noise = np.random.uniform(-1, 1, (num_rows * num_classes, latent_size))
-
-		sampled_labels = np.array([
-			list(tags_to_embeddings([tag])) * num_rows for tag in tags
-		]).reshape(-1, num_classes)
-
-		# get a batch to display
-		generated_images = generator.predict([noise, sampled_labels], verbose=0)
-
-		# prepare real images not sorted by class label
-		# real_images, real_labels = zip(*next(batch_gen))
-		real_images, real_labels = x_test, y_test
-		indices = np.argsort(real_labels, axis=0)
-
-		# display generated images, white separator, real images
-		img = np.concatenate(
-			(generated_images,
-			 real_images))
-
-		# arrange them into a grid
-		print(img.shape)
-		img = np.concatenate(np.hstack(np.split(img, 43)), axis=1) * 127.5 + 127.5
-		preview_img_path = str(visualization_dir / 'plot_epoch_{0:04d}_generated.png'.format(epoch))
-		array_to_img(img).save(preview_img_path)
-		print("saved preview to {}".format(preview_img_path))
-
 	pickle.dump({'train': train_history, 'test': test_history}, open('acgan-history.pkl', 'wb'))
 
 print("args: {}".format(args))
