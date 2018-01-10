@@ -70,11 +70,6 @@ gen_dir = Path("gen/")
 if not gen_dir.exists():
 	gen_dir.mkdir(parents=True)
 
-def load_tags():
-	tags_file = Path(args.tags_file)
-	tags = pandas.read_csv(tags_file, names=["file", "tagA", "tagB", "tagC", "tagD", "tagE"])
-	return tags
-
 def getTagsFromFile(img_path):
 	with open(str(tags_file), "r") as f:
 		line = f.readline()
