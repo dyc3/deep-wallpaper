@@ -3,21 +3,16 @@
 # found this paper: https://web.stanford.edu/class/cs221/2017/restricted/p-final/dkimball/final.pdf
 # code from paper: https://github.com/karenyang/MultiGAN
 
-import h5py, argparse, sys, os, pandas
+import h5py, argparse, sys, os
 from math import floor, ceil
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
-from functools import reduce
-from tqdm import tqdm
 from collections import defaultdict
 import glob, re
 try:
 	import cPickle as pickle
 except ImportError:
 	import pickle
-from scipy.stats import norm
-from sklearn.model_selection import train_test_split
 from keras import backend as K
 from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Reshape, Lambda, Layer, Dropout
