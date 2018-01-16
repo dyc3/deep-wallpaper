@@ -1,6 +1,22 @@
 #!/usr/bin/env python3
 
 import h5py, argparse, sys, os
+from PIL import Image
+from pathlib import Path
+from datetime import datetime
+import numpy as np
+from collections import defaultdict
+from functools import reduce
+from keras.models import Model, Sequential
+from keras.layers import Input, Dense, Reshape, Dropout
+from keras.layers import Flatten, Activation, Embedding
+from keras.layers import Conv2D, Conv2DTranspose, UpSampling2D
+from keras.layers import concatenate, multiply, add
+from keras.layers.advanced_activations import LeakyReLU
+from keras.optimizers import Adam
+from keras.layers.normalization import BatchNormalization
+from keras.preprocessing.image import load_img, array_to_img, img_to_array
+from keras.utils.generic_utils import Progbar
 
 # NOTE: These are not good tags. Good tags would probably consist of art styles instead of objects found in the photo.
 # NOTE: The order of these elements matters. Do not change the order.
@@ -8,7 +24,8 @@ tags = ["car","minimal","nature","animal","landscape","people","abstract","city"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--show-summary", help="Prints summaries of the model's architecture.", action="store_true")
-parser.add_argument("--train", action="store_true")
+# parser.add_argument("--train", action="store_true")
+parser.add_argument("--train", type=str, choices=["acgan", "supersampler"])
 parser.add_argument("--epochs", type=int, default=2000)
 parser.add_argument("--resume", type=int, default=1, help="The epoch at which to resume training. (Will load from the previous epoch)")
 parser.add_argument("--steps-per-epoch", type=int, default=64)
@@ -21,6 +38,7 @@ parser.add_argument("--export-full-model", type=str)
 parser.add_argument("--export-model-json", type=str)
 
 parser.add_argument("--generate", type=int, default=0)
+parser.add_argument("--upscale", type=str)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
 
 parser.add_argument("--visualize", type=str, choices=["epochs", "layers"])
@@ -48,7 +66,7 @@ class ACGAN(object):
 		assert latent_size > 0
 		assert len(tags) > 0
 
-		self.latent_size = self.latent_size
+		self.latent_size = latent_size
 		self.tags = tags
 
 		self.generator = self.build_generator()
@@ -56,10 +74,10 @@ class ACGAN(object):
 		self.combined = self.build_combined()
 
 	@property
-	def num_classes():
+	def num_classes(self):
 		return len(self.tags)
 
-	def get_tags_from_file(img_path):
+	def get_tags_from_file(self, img_path):
 		with open(str(tags_file), "r") as f:
 			line = f.readline()
 			while line:
@@ -69,20 +87,20 @@ class ACGAN(object):
 				line = f.readline()
 		return []
 
-	def tags_to_index(in_tags):
+	def tags_to_index(self, in_tags):
 		indices = []
 		for tag in in_tags:
 			if tag in tags:
 				indices.append(tags.index(tag))
 		return np.array(indices)
 
-	def tags_to_embeddings(img_tags):
+	def tags_to_embeddings(self, img_tags):
 		embeddings = []
 		for tag in tags:
 			embeddings.append(1 if tag in img_tags else 0)
 		return np.array(embeddings, dtype="float32")
 
-	def random_tags():
+	def random_tags(self):
 		return np.random.choice(self.tags, size=np.random.randint(1, len(self.tags)))
 
 	def batch_generator(self):
@@ -94,7 +112,7 @@ class ACGAN(object):
 		while True:
 			batch = []
 			checked = 0
-			while len(batch) < batch_size:
+			while len(batch) < args.batch_size:
 				img_path = all_paths[(batch_start + checked) % (len(all_paths) - 1)]
 				img_tags = self.get_tags_from_file(img_path)
 				checked += 1
@@ -111,8 +129,8 @@ class ACGAN(object):
 				batch_start = 0
 
 			yield np.asarray(batch)
-	
-	def build_generator():
+
+	def build_generator(self):
 		assert self.latent_size > 0
 		assert self.num_classes > 0
 		# we will map a pair of (z, L), where z is a latent vector and L is a
@@ -165,7 +183,7 @@ class ACGAN(object):
 
 		return Model([latent, image_class], fake_image)
 
-	def build_discriminator():
+	def build_discriminator(self):
 		assert self.num_classes > 0
 		# build a relatively standard conv net, with LeakyReLUs as suggested in
 		# the reference paper
@@ -203,7 +221,7 @@ class ACGAN(object):
 
 		return Model(image, [fake, aux])
 
-	def build_combined():
+	def build_combined(self):
 		assert self.latent_size > 0
 		assert self.num_classes > 0
 
@@ -217,7 +235,7 @@ class ACGAN(object):
 		image_class = Input(shape=(self.num_classes,), dtype='float32')
 
 		# get a fake image
-		fake = generator([latent, image_class])
+		fake = self.generator([latent, image_class])
 
 		# we only want to be able to train generation for the combined model
 		self.discriminator.trainable = False
@@ -231,12 +249,12 @@ class ACGAN(object):
 
 		return combined
 
-	def load_checkpoint(epoch):
+	def load_checkpoint(self, epoch):
 		assert isinstance(epoch, int) and epoch > 1
 		self.generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)), True)
 		self.discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
 
-	def train(epochs, resume=1, batch_size=32):
+	def train(self, epochs, resume=1, batch_size=32):
 		if resume > 1:
 			# We need to load weights from the last epoch
 			load_checkpoint(resume - 1)
@@ -263,13 +281,13 @@ class ACGAN(object):
 				noise = np.random.uniform(-1, 1, (batch_size, self.latent_size))
 
 				# sample some labels from p_c
-				sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(batch_size)])
+				sampled_labels = np.array([self.tags_to_embeddings(self.random_tags()) for _ in range(batch_size)])
 
 				# generate a batch of fake images, using the generated labels as a
 				# conditioner. We reshape the sampled labels to be
 				# (batch_size, 1) so that we can feed them into the embedding
 				# layer as a length one sequence
-				generated_images = generator.predict([noise, sampled_labels], verbose=0)
+				generated_images = self.generator.predict([noise, sampled_labels], verbose=0)
 
 				x = np.concatenate((image_batch, generated_images))
 
@@ -280,20 +298,20 @@ class ACGAN(object):
 				aux_y = np.concatenate((label_batch, sampled_labels), axis=0)
 
 				# see if the discriminator can figure itself out...
-				epoch_disc_loss.append(discriminator.train_on_batch(x, {"generation":y, "auxiliary":aux_y}))
+				epoch_disc_loss.append(self.discriminator.train_on_batch(x, {"generation":y, "auxiliary":aux_y}))
 
 				# make new noise. we generate batch_size + this_batch_size here such that we have
 				# the generator optimize over an identical number of images as the
 				# discriminator
 				noise = np.random.uniform(-1, 1, (batch_size + this_batch_size, self.latent_size))
-				sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(batch_size + this_batch_size)])
+				sampled_labels = np.array([self.tags_to_embeddings(self.random_tags()) for _ in range(batch_size + this_batch_size)])
 
 				# we want to train the generator to trick the discriminator
 				# For the generator, we want all the {fake, not-fake} labels to say
 				# not-fake
 				trick = np.ones(batch_size + this_batch_size) * soft_one
 
-				epoch_gen_loss.append(combined.train_on_batch(
+				epoch_gen_loss.append(self.combined.train_on_batch(
 					[noise, sampled_labels],
 					[trick, sampled_labels]))
 
@@ -310,24 +328,24 @@ class ACGAN(object):
 
 			# sample some labels from p_c and generate images from them
 			sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(batch_size)])
-			generated_images = generator.predict([noise, sampled_labels], verbose=False)
+			generated_images = self.generator.predict([noise, sampled_labels], verbose=False)
 
 			x = np.concatenate((x_test, generated_images))
 			y = np.array([1] * len(x_test) + [0] * num_test)
 			aux_y = np.concatenate((y_test, sampled_labels), axis=0)
 
 			# see if the discriminator can figure itself out...
-			discriminator_test_loss = discriminator.evaluate(x, [y, aux_y], verbose=False)
+			discriminator_test_loss = self.discriminator.evaluate(x, [y, aux_y], verbose=False)
 
 			discriminator_train_loss = np.mean(np.array(epoch_disc_loss), axis=0)
 
 			# make new noise
 			noise = np.random.uniform(-1, 1, (2 * num_test, self.latent_size))
-			sampled_labels = np.array([tags_to_embeddings(self.random_tags()) for _ in range(2 * num_test)])
+			sampled_labels = np.array([self.tags_to_embeddings(self.random_tags()) for _ in range(2 * num_test)])
 
 			trick = np.ones(2 * num_test)
 
-			generator_test_loss = combined.evaluate([noise, sampled_labels], [trick, sampled_labels], verbose=False)
+			generator_test_loss = self.combined.evaluate([noise, sampled_labels], [trick, sampled_labels], verbose=False)
 
 			generator_train_loss = np.mean(np.array(epoch_gen_loss), axis=0)
 
@@ -338,7 +356,7 @@ class ACGAN(object):
 			test_history['generator'].append(generator_test_loss)
 			test_history['discriminator'].append(discriminator_test_loss)
 
-			print('{0:<22s} | {1:4s} | {2:15s} | {3:5s}'.format('component', *discriminator.metrics_names))
+			print('{0:<22s} | {1:4s} | {2:15s} | {3:5s}'.format('component', *self.discriminator.metrics_names))
 			print('-' * 65)
 
 			ROW_FMT = '{0:<22s} | {1:<4.2f} | {2:<15.2f} | {3:<5.2f}'
@@ -353,9 +371,20 @@ class ACGAN(object):
 
 		pickle.dump({'train': train_history, 'test': test_history}, open('acgan-history.pkl', 'wb')) # TODO: load histories and append when resuming training
 
-	def generate(count=1, latent_space=None, tags=None):
+	def generate(self, count=1, latent_space=None, tags=None) -> list:
+		"""
+		count: An int that determines the number of examples to generate. Must be 1 if latent_space is set.
+
+		latent_space: A list the size of self.latent_size that contains values from -1 to 1.
+
+		tags: A list of strings that are in self.tags. Size must be less than self.num_classes.
+
+		Returns a list of PIL images.
+		"""
+		assert isinstance(count, int)
 		assert (latent_space == None and count == 1) or (latent_space != None and count >= 1)
 		assert len(latent_space) == self.latent_size
+		assert len(tags) <= self.num_classes
 
 		if latent_space == None:
 			latent_space = np.random.uniform(-1, 1, (count, latent_size))
@@ -363,8 +392,8 @@ class ACGAN(object):
 			latent_space = [latent_space]
 
 		if tags == None:
-			print("using random tags")
 			tags = self.random_tags()
+			print("using random tags:", tags)
 		else:
 			print("using provided tags:", tags)
 		sampled_labels = np.array([tags_to_embeddings(tags) for _ in range(count)])
@@ -372,9 +401,228 @@ class ACGAN(object):
 		generated_images = generator.predict([latent_space, sampled_labels], verbose=0)
 		generated_images = generated_images * 127.5 + 127.5
 
-		for array in generated_images:
-			i = 0
-			while (gen_dir / "gen{}.png".format(i)).exists():
-				i += 1
-			array_to_img(array).save(str(gen_dir / "gen{}.png".format(i)))
+		# for array in generated_images:
+		# 	i = 0
+		# 	while (gen_dir / "gen{}.png".format(i)).exists():
+		# 		i += 1
+		# 	array_to_img(array).save(str(gen_dir / "gen{}.png".format(i)))
+		return list([array_to_img(array) for array in generated_images])
+class SuperSampler(object):
+	def __init__(self):
+		self.model = self.build()
+		self._pair_generator = self._sample_pair_generator(Path(args.data_dir))
+		self.input_size = (32, 32)
+		self.output_size = (64, 64)
+	
+	def build(self):
+		supersampler_input_shape = (32, 32, 3)
+		supersampler_output_shape = (64, 64, 3)
+		super_out_dim = reduce(lambda x, y: x * y, supersampler_output_shape, 1)
 
+		super_input_decoded = Input(shape=supersampler_input_shape,
+									name="supersampler_input_decoded")
+
+		def Res_block():
+			_input = Input(shape=(None, None, 64))
+
+			conv = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu')(_input)
+			conv = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='linear')(conv)
+
+			out = add(inputs=[_input, conv])
+			out = Activation('relu')(out)
+
+			model = Model(inputs=_input, outputs=out)
+
+			return model
+
+		_input = Input(shape=supersampler_input_shape, name='input')
+
+		Feature = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same', activation='relu')(_input)
+		Feature_out = Res_block()(Feature)
+
+		# Upsampling
+		Upsampling1 = Conv2D(filters=4, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Feature_out)
+		Upsampling2 = Conv2DTranspose(filters=4, kernel_size=(14, 14), strides=(2, 2), padding='same', activation='relu')(Upsampling1)
+		Upsampling3 = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Upsampling2)
+
+		# Mulyi-scale Reconstruction
+		Reslayer1 = Res_block()(Upsampling3)
+
+		Reslayer2 = Res_block()(Reslayer1)
+
+		Multi_scale1 = Conv2D(filters=16, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Reslayer2)
+
+		Multi_scale2a = Conv2D(filters=16, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+
+		Multi_scale2b = Conv2D(filters=16, kernel_size=(1, 3), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+		Multi_scale2b = Conv2D(filters=16, kernel_size=(3, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2b)
+
+		Multi_scale2c = Conv2D(filters=16, kernel_size=(1, 5), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+		Multi_scale2c = Conv2D(filters=16, kernel_size=(5, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2c)
+
+		Multi_scale2d = Conv2D(filters=16, kernel_size=(1, 7), strides=(1, 1), padding='same', activation='relu')(Multi_scale1)
+		Multi_scale2d = Conv2D(filters=16, kernel_size=(7, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2d)
+
+		Multi_scale2 = concatenate(inputs=[Multi_scale2a, Multi_scale2b, Multi_scale2c, Multi_scale2d])
+
+		out = Conv2D(filters=3, kernel_size=(1, 1), strides=(1, 1), padding='same', activation='relu')(Multi_scale2)
+		supersampler = Model(inputs=_input, outputs=out)
+		supersampler.compile(optimizer="rmsprop", loss='mean_squared_error')
+		return supersampler
+
+	def load_checkpoint(self, ckpt_path: Path):
+		self.model.load_weights(str(ckpt_path))
+
+	def _sample_pair_generator(self, source_path: Path):
+		"""
+		Iterates through images from source_path, and returns
+
+		Returns a tuple of 2 3-dimentional arrays representing images.
+		"""
+		if isinstance(source_path, str):
+			source_path = Path(source_path)
+		assert isinstance(source_path, Path)
+
+		while True:
+			all_image_files = list(source_path.iterdir)
+			for img_path in all_image_files:
+				img_orig = load_img(img_path)
+				img_small = img_orig.copy().resize(self.input_size)
+
+				for y in range(0, img_orig.size[1] - self.output_size[1], self.output_size[1]):
+					for x in range(0, img_orig.size[0] - self.output_size[0], self.output_size[0]):
+						img_x = img_small.crop((x / 2, y / 2, x + self.input_size[0], y + self.input_size[1]))
+						img_y = img_orig.crop((x, y, x + self.output_size[0], y + self.output_size[1]))
+
+						array_x = img_to_array(img_x) / 255
+						array_y = img_to_array(img_y) / 255
+
+						yield array_x, array_y
+
+	def get_batch(self, batch_size=2048):
+		"""
+		batch_size: The number of samples in the batch.
+
+		Returns a batch to train on in the form of a tuple of 2 lists: (X, Y)
+		"""
+		return zip(*[next(self._pair_generator) for _ in range(batch_size)])
+
+	def train(self, epochs, resume=1, steps_per_epoch=args.steps_per_epoch):
+		assert epochs > 0
+
+		for epoch in range(resume, epochs + 1):
+			print("Epoch", epoch)
+			for step in range(1, steps_per_epoch + 1):
+				print("> {}/{} Grabbing batch...".format(step, steps_per_epoch), end='\r')
+				data_x, data_y = self.get_batch()
+				print("> {}/{} Training...".format(step, steps_per_epoch), end='\r')
+				self.model.train_on_batch(data_x, data_y)
+			print()
+
+	def upscale(self, orig_img: Image) -> Image:
+		"""
+		Returns an image that is 2x the resolution of the input image.
+
+		NOTE: There are probably some optimizations that could be made here.
+		TODO: agregate all chunks into a list before upscaling them.
+		"""
+		figure = np.zeros((orig_img.size[1] * 2, orig_img.size[0] * 2, 3))
+		new_size = (orig_img.size[0] * 2, orig_img.size[1] * 2)
+		
+		blend_weights_x = []
+		blend_weights_y = []
+		for offset in [0, 32]: # this makes the blending take place after the initial prediction
+			for y in range(0 + offset, new_size[1], 64 - offset):
+				for x in range(0 + offset, new_size[0], 64 - offset):
+					img_x = orig_img.crop((int(x/2), int(y/2), int(x/2) + 32, int(y/2) + 32))
+					array_x = img_to_array(img_x)
+					max_pixel_value = array_x.max()
+					array_x /= max_pixel_value
+
+					print("predicting at ", x, ",", y)
+					chunks_out = self.model.predict(np.array([array_x]))
+					img_y = array_to_img(chunks_out[0])
+					if x + 64 > new_size[0]:
+						img_y = img_y.crop((0, 0, new_size[0]-x, img_y.size[0]))
+					if y + 64 > new_size[1]:
+						img_y = img_y.crop((0, 0, img_y.size[1], new_size[1]-y))
+					try:
+						array_y = img_to_array(img_y)
+						array_y *= max_pixel_value
+
+						# image math: blending - https://homepages.inf.ed.ac.uk/rbf/HIPR2/blend.htm
+						# https://stackoverflow.com/questions/5919663/how-does-photoshop-blend-two-images-together
+						if len(blend_weights_x) == 0 or blend_weights_x.shape != array_y.shape:
+							print("recalculate blend_weights_x")
+							blend_weights_x = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[1] / 2)), np.linspace(1, 0, int(array_y.shape[1] / 2))]) for _ in range(array_y.shape[0])])
+							blend_weights_x = blend_weights_x.reshape((*array_y.shape[:-1], 1))
+							blend_weights_x = np.repeat(blend_weights_x, repeats=3, axis=2)
+						if len(blend_weights_y) == 0 or blend_weights_y.shape != array_y.shape:
+							print("recalculate blend_weights_y")
+							blend_weights_y = np.array([np.concatenate([np.linspace(0, 1, int(array_y.shape[0] / 2)), np.linspace(1, 0, int(array_y.shape[0] / 2))]) for _ in range(array_y.shape[1])])
+							blend_weights_y = np.rot90(blend_weights_y)
+							blend_weights_y = blend_weights_y.reshape((*array_y.shape[:-1], 1))
+							blend_weights_y = np.repeat(blend_weights_y, repeats=3, axis=2)
+							
+						if (offset == 32 and x % 32 == 0 and x % 64 != 0) or (offset == 32 and y % 32 == 0 and y % 64 != 0):
+							blend_weights = None
+							if (x % 32 == 0 and x % 64 != 0) and (y % 32 == 0 and y % 64 != 0):
+								blend_weights = blend_weights_x * blend_weights_y
+								blend_weights = np.clip(blend_weights, 0, 1)
+							elif x % 32 == 0 and x % 64 != 0:
+								blend_weights = blend_weights_x
+							elif y % 32 == 0 and y % 64 != 0:
+								blend_weights = blend_weights_y
+							source = figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] * (1 - blend_weights)
+							target = array_y * blend_weights
+							result = source + target
+							figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] = result
+						if offset == 0:
+							figure[y : y+array_y.shape[0], x : x+array_y.shape[1]] = array_y
+							
+					except ValueError as e:
+						print(x, y, figure.shape, img_y.size, "ValueError, ignoring")
+				
+		return array_to_img(figure)
+
+def get_latest_epoch():
+	matches = sorted(ckpt_dir.glob("params_generator_epoch_*"))
+	latest_epoch = re.findall(r'[0-9]+', str(matches[-1]))
+	return int(latest_epoch[0])
+
+if __name__ == "__main__":
+	acgan = ACGAN(tags=tags)
+	supersampler = SuperSampler()
+
+	if args.train:
+		if args.train == "acgan":
+			acgan.train(args.epochs, resume=args.resume)
+		elif args.train == "supersampler":
+			if args.resume > 1:
+				print("loading supersampler weights")
+				supersampler.load_checkpoint(ckpt_dir / "superres_weights.h5")
+			supersampler.train(args.epochs, resume=args.resume)
+
+	if args.generate > 0:
+		if not args.train:
+			target_epoch = get_latest_epoch()
+			print("loading acgan weights from epoch {}".format(target_epoch))
+			acgan.load_checkpoint(target_epoch)
+			print("loading supersampler weights")
+			supersampler.load_checkpoint(ckpt_dir / "superres_weights.h5")
+		gen_num = 0
+		now = datetime.now()
+		for img in acgan.generate(args.generate, tags=args.tags):
+			img_up = supersampler.upscale(img)
+			img_up.save(str(gen_dir / "gen_{}{}{}_{}{}_{}.png".format(now.year, now.month, now.day, now.hour, now.minute, gen_num)))
+			gen_num += 1
+	
+	if args.upscale:
+		if not (args.generate or args.train):
+			print("loading supersampler weights")
+			supersampler.load_checkpoint(ckpt_dir / "superres_weights.h5")
+		
+		img_path = Path(args.upscale)
+		img = load_img(img_path)
+		target_path = Path("{}_up2{}".format(img_path.stem, img_path.suffix))
+		supersampler.upscale(img).save(target_path)
