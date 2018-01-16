@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime
 import numpy as np
 from collections import defaultdict
+import glob, re
 from functools import reduce
 from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Reshape, Dropout
@@ -38,6 +39,7 @@ parser.add_argument("--export-full-model", type=str)
 parser.add_argument("--export-model-json", type=str)
 
 parser.add_argument("--generate", type=int, default=0)
+parser.add_argument("--gen-upscale", type=int, default=3, help="The number of times to upscale generated images.")
 parser.add_argument("--upscale", type=str)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
 
@@ -252,7 +254,10 @@ class ACGAN(object):
 	def load_checkpoint(self, epoch):
 		assert isinstance(epoch, int) and epoch > 1
 		self.generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)), True)
-		self.discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
+		try:
+			self.discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
+		except OSError:
+			print("WARNING: discriminator checkpoint not found.")
 
 	def train(self, epochs, resume=1, batch_size=32):
 		if resume > 1:
@@ -383,11 +388,11 @@ class ACGAN(object):
 		"""
 		assert isinstance(count, int)
 		assert (latent_space == None and count == 1) or (latent_space != None and count >= 1)
-		assert len(latent_space) == self.latent_size
+		assert latent_space == None or len(latent_space) == self.latent_size
 		assert len(tags) <= self.num_classes
 
 		if latent_space == None:
-			latent_space = np.random.uniform(-1, 1, (count, latent_size))
+			latent_space = np.random.uniform(-1, 1, (count, self.latent_size))
 		else:
 			latent_space = [latent_space]
 
@@ -396,16 +401,11 @@ class ACGAN(object):
 			print("using random tags:", tags)
 		else:
 			print("using provided tags:", tags)
-		sampled_labels = np.array([tags_to_embeddings(tags) for _ in range(count)])
+		sampled_labels = np.array([self.tags_to_embeddings(tags) for _ in range(count)])
 
-		generated_images = generator.predict([latent_space, sampled_labels], verbose=0)
+		generated_images = self.generator.predict([latent_space, sampled_labels], verbose=0)
 		generated_images = generated_images * 127.5 + 127.5
 
-		# for array in generated_images:
-		# 	i = 0
-		# 	while (gen_dir / "gen{}.png".format(i)).exists():
-		# 		i += 1
-		# 	array_to_img(array).save(str(gen_dir / "gen{}.png".format(i)))
 		return list([array_to_img(array) for array in generated_images])
 class SuperSampler(object):
 	def __init__(self):
@@ -613,7 +613,9 @@ if __name__ == "__main__":
 		gen_num = 0
 		now = datetime.now()
 		for img in acgan.generate(args.generate, tags=args.tags):
-			img_up = supersampler.upscale(img)
+			img_up = img
+			for _ in range(args.gen_upscale):
+				img_up = supersampler.upscale(img_up)
 			img_up.save(str(gen_dir / "gen_{}{}{}_{}{}_{}.png".format(now.year, now.month, now.day, now.hour, now.minute, gen_num)))
 			gen_num += 1
 	
