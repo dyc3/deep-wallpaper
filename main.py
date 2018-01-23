@@ -44,6 +44,7 @@ parser.add_argument("--upscale", type=str)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
 
 parser.add_argument("--visualize", type=str, choices=["epochs", "layers"])
+parser.add_argument("--evaluate", type=str, help="Evaluate all epochs and put into specified file, formatted as csv.")
 args = parser.parse_args()
 
 img_width, img_height, img_chns = 128, 72, 3
@@ -252,7 +253,7 @@ class ACGAN(object):
 		return combined
 
 	def load_checkpoint(self, epoch):
-		assert isinstance(epoch, int) and epoch > 1
+		assert isinstance(epoch, int) and epoch > 0
 		self.generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)), True)
 		try:
 			self.discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
@@ -332,7 +333,7 @@ class ACGAN(object):
 			noise = np.random.uniform(-1, 1, (num_test, self.latent_size))
 
 			# sample some labels from p_c and generate images from them
-			sampled_labels = np.array([tags_to_embeddings(random_tags()) for _ in range(batch_size)])
+			sampled_labels = np.array([self.tags_to_embeddings(self.random_tags()) for _ in range(batch_size)])
 			generated_images = self.generator.predict([noise, sampled_labels], verbose=False)
 
 			x = np.concatenate((x_test, generated_images))
@@ -375,6 +376,40 @@ class ACGAN(object):
 			discriminator.save_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
 
 		pickle.dump({'train': train_history, 'test': test_history}, open('acgan-history.pkl', 'wb')) # TODO: load histories and append when resuming training
+
+	def evaluate(self, batch_size=32):
+		"""
+		Evaluate the current weights.
+
+		Returns a tuple of (generator_loss, discriminator_loss)
+		"""
+		batch_gen = self.batch_generator()		
+
+		# generate a new batch of noise
+		num_test = batch_size
+		x_test, y_test = zip(*next(batch_gen))
+		noise = np.random.uniform(-1, 1, (num_test, self.latent_size))
+
+		# sample some labels from p_c and generate images from them
+		sampled_labels = np.array([self.tags_to_embeddings(self.random_tags()) for _ in range(batch_size)])
+		generated_images = self.generator.predict([noise, sampled_labels], verbose=False)
+
+		x = np.concatenate((x_test, generated_images))
+		y = np.array([1] * len(x_test) + [0] * num_test)
+		aux_y = np.concatenate((y_test, sampled_labels), axis=0)
+
+		# see if the discriminator can figure itself out...
+		discriminator_test_loss = self.discriminator.evaluate(x, [y, aux_y], verbose=False)
+
+		# make new noise
+		noise = np.random.uniform(-1, 1, (2 * num_test, self.latent_size))
+		sampled_labels = np.array([self.tags_to_embeddings(self.random_tags()) for _ in range(2 * num_test)])
+
+		trick = np.ones(2 * num_test)
+
+		generator_test_loss = self.combined.evaluate([noise, sampled_labels], [trick, sampled_labels], verbose=False)
+
+		return generator_test_loss, discriminator_test_loss
 
 	def generate(self, count=1, latent_space=None, tags=None) -> list:
 		"""
@@ -628,3 +663,20 @@ if __name__ == "__main__":
 		img = load_img(img_path)
 		target_path = Path("{}_up2{}".format(img_path.stem, img_path.suffix))
 		supersampler.upscale(img).save(target_path)
+
+	if args.evaluate:
+		target_path = Path(args.evaluate)
+
+		loss_list = []
+		for epoch in range(1, get_latest_epoch() + 1):
+			print("Evaluating epoch {}...".format(epoch))
+			acgan.load_checkpoint(epoch)
+			loss_list.append(acgan.evaluate())
+		
+		print("Saving to {}".format(str(target_path)))
+		with target_path.open(mode="w") as f:
+			f.write("generator,discriminator\n")
+			for losses in loss_list:
+				f.write("{}},{}}\n".format(*losses))
+
+
