@@ -671,12 +671,12 @@ if __name__ == "__main__":
 		for epoch in range(1, get_latest_epoch() + 1):
 			print("Evaluating epoch {}...".format(epoch))
 			acgan.load_checkpoint(epoch)
-			loss_list.append(acgan.evaluate())
+			loss_list.append((epoch, acgan.evaluate()))
 		
 		print("Saving to {}".format(str(target_path)))
 		with target_path.open(mode="w") as f:
-			f.write("generator,discriminator\n")
+			f.write("epcoh,generator,discriminator\n")
 			for losses in loss_list:
-				f.write("{}},{}}\n".format(*losses))
+				f.write("{},{},{}\n".format(*losses))
 
 
