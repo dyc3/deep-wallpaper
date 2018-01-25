@@ -680,5 +680,3 @@ if __name__ == "__main__":
 			f.write("epcoh,generator,discriminator\n")
 			for losses in loss_list:
 				f.write("{},{},{}\n".format(*losses))
-
-
