@@ -18,6 +18,9 @@ from keras.optimizers import Adam
 from keras.layers.normalization import BatchNormalization
 from keras.preprocessing.image import load_img, array_to_img, img_to_array
 from keras.utils.generic_utils import Progbar
+from keras import activations
+from vis.visualization import visualize_activation
+from vis.utils import utils
 
 # NOTE: These are not good tags. Good tags would probably consist of art styles instead of objects found in the photo.
 # NOTE: The order of these elements matters. Do not change the order.
@@ -50,7 +53,7 @@ args = parser.parse_args()
 img_width, img_height, img_chns = 128, 72, 3
 tags_file = Path("data/good/tags.csv")
 
-visualization_dir = Path("visualization/preview/ACGAN/")
+visualization_dir = Path("visualization/")
 if not visualization_dir.exists():
 	visualization_dir.mkdir(parents=True)
 
@@ -444,6 +447,7 @@ class ACGAN(object):
 		generated_images = generated_images * 127.5 + 127.5
 
 		return list([array_to_img(array) for array in generated_images])
+
 class SuperSampler(object):
 	def __init__(self):
 		self.model = self.build()
@@ -682,6 +686,8 @@ if __name__ == "__main__":
 				f.write("{},{},{}\n".format(*losses))
 
 	if args.visualize == "epochs":
+		visualization_path /= "preview/ACGAN"
+
 		noise = np.random.uniform(-1, 1, (1, latent_size))
 		if len(args.tags) == 0:
 			print("using random tags")
@@ -698,3 +704,46 @@ if __name__ == "__main__":
 			img = acgan.generate(latent_space=noise, tags=args.tags)[0]
 			image_path = visualization_dir / "vis_epoch_{0:04d}.png".format(epoch)
 			img.save(str(image_path))
+
+	elif args.visualize == "layers":
+		visualization_path /= "layers/ACGAN"
+
+		# visualize each class
+		for t in range(len(tags)):
+			save_path = visualization_path / "out_{}.png".format(tags[t])
+			if save_path.exists():
+				# print("{} already visualized".format(tags[t]))
+				continue
+
+			output_layer_name = acgan.generator.outputs[0].name
+			layer_idx = utils.find_layer_idx(acgan.generator, output_layer_name)
+
+			# Swap softmax with linear
+			acgan.generator.layers[layer_idx].activation = activations.linear
+			acgan.generator = utils.apply_modifications(acgan.generator)
+
+			img = visualize_activation(acgan.generator, layer_idx, filter_indices=t, verbose=True)
+			array_to_img(img).save(save_path)
+			print("saved to {}".format(str(save_path)))
+
+		# visualize each layer
+		for layer_name in [layer.name for layer in acgan.generator.layers]:
+			save_path = visualization_path / "{}.png".format(layer_name)
+			if save_path.exists():
+				# print("{} already visualized".format(layer_name))
+				continue
+			if any([x in layer_name for x in ["batch_normalization", "input"]]):
+				print("skipping visualization of {}".format(layer_name))
+				continue
+
+			# Utility to search for layer index by name. 
+			# Alternatively we can specify this as -1 since it corresponds to the last layer.
+			layer_idx = utils.find_layer_idx(acgan.generator, layer_name)
+
+			# Swap softmax with linear
+			acgan.generator.layers[layer_idx].activation = activations.linear
+			acgan.generator = utils.apply_modifications(acgan.generator)
+
+			img = visualize_activation(acgan.generator, layer_idx, verbose=True)
+			array_to_img(img).save(save_path)
+			print("saved to {}".format(str(save_path)))
