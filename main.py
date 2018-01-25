@@ -680,3 +680,21 @@ if __name__ == "__main__":
 			f.write("epcoh,generator,discriminator\n")
 			for losses in loss_list:
 				f.write("{},{},{}\n".format(*losses))
+
+	if args.visualize == "epochs":
+		noise = np.random.uniform(-1, 1, (1, latent_size))
+		if len(args.tags) == 0:
+			print("using random tags")
+			args.tags = acgan.random_tags()
+		else:
+			print("using provided tags")
+		print("tags: {}".format(args.tags))
+
+		for epoch in range(args.resume, args.epochs + 1):
+			print("loading epoch {}".format(epoch))
+			acgan.load_checkpoint(epoch)
+
+			print("visualizing epoch {}".format(epoch))
+			img = acgan.generate(latent_space=noise, tags=args.tags)[0]
+			image_path = visualization_dir / "vis_epoch_{0:04d}.png".format(epoch)
+			img.save(str(image_path))
