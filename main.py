@@ -65,6 +65,8 @@ if not gen_dir.exists():
 class ACGAN(object):
 	"""Handles training and image generation for the ACGAN.
 	"""
+
+	# NOTE: 100 latent space is too small. If you retrain this, make sure to have a lot more latent space.
 	def __init__(self, latent_size=100, tags=[]):
 		assert latent_size > 0
 		assert len(tags) > 0
