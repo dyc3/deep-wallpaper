@@ -753,3 +753,10 @@ if __name__ == "__main__":
 			img = visualize_activation(acgan.generator, layer_idx, verbose=True)
 			array_to_img(img).save(save_path)
 			print("saved to {}".format(str(save_path)))
+
+	if args.export_model_json:
+		assert len(args.export_model_json) > 0
+		print("exporting generator as JSON to", args.export_model_json)
+		model_json = acgan.generator.to_json()
+		with open(args.export_model_json, mode="w") as f:
+			f.write(model_json)
