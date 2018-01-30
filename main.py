@@ -257,11 +257,17 @@ class ACGAN(object):
 
 		return combined
 
+	def _get_file_name_suffix(self, epoch):
+		if not self.latent_size == 100:
+			return "latent_{}".format(self.latent_size) + "_epoch_{0:04d}".format(epoch)
+		else:
+			return "epoch_{0:04d}".format(epoch)
+
 	def load_checkpoint(self, epoch):
 		assert isinstance(epoch, int) and epoch > 0
-		self.generator.load_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)), True)
+		self.generator.load_weights(str(ckpt_dir / 'params_generator_{}.hdf5'.format(self._get_file_name_suffix(epoch))), True)
 		try:
-			self.discriminator.load_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
+			self.discriminator.load_weights(str(ckpt_dir / 'params_discriminator_{}.hdf5'.format(self._get_file_name_suffix(epoch))), True)
 		except OSError:
 			print("WARNING: discriminator checkpoint not found.")
 
@@ -377,8 +383,8 @@ class ACGAN(object):
 			print(ROW_FMT.format('discriminator (test)', *test_history['discriminator'][-1]))
 
 			# save weights every epoch
-			generator.save_weights(str(ckpt_dir / 'params_generator_epoch_{0:04d}.hdf5'.format(epoch)), True)
-			discriminator.save_weights(str(ckpt_dir / 'params_discriminator_epoch_{0:04d}.hdf5'.format(epoch)), True)
+			self.generator.save_weights(str(ckpt_dir / 'params_generator_{}.hdf5'.format(self._get_file_name_suffix(epoch))), True)
+			self.discriminator.save_weights(str(ckpt_dir / 'params_discriminator_{}.hdf5'.format(self._get_file_name_suffix(epoch))), True)
 
 		pickle.dump({'train': train_history, 'test': test_history}, open('acgan-history.pkl', 'wb')) # TODO: load histories and append when resuming training
 
