@@ -638,7 +638,7 @@ def get_latest_epoch():
 	return int(latest_epoch[0])
 
 if __name__ == "__main__":
-	acgan = ACGAN(tags=tags)
+	acgan = ACGAN(tags=tags, latent_size=2000)
 	supersampler = SuperSampler()
 
 	if args.train:
