@@ -433,7 +433,7 @@ class ACGAN(object):
 		Returns a list of PIL images.
 		"""
 		assert isinstance(count, int)
-		assert (latent_space == None and count == 1) or (latent_space != None and count >= 1)
+		assert (latent_space != None and count == 1) or (latent_space == None and count >= 1)
 		assert latent_space == None or len(latent_space) == self.latent_size
 		assert len(tags) <= self.num_classes
 
