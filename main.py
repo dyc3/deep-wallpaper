@@ -667,7 +667,7 @@ if __name__ == "__main__":
 			img_up = img
 			for _ in range(args.gen_upscale):
 				img_up = supersampler.upscale(img_up)
-			img_up.save(str(gen_dir / "gen_{}{}{}_{}{}_{}.png".format(now.year, now.month, now.day, now.hour, now.minute, gen_num)))
+			img_up.save(str(gen_dir / "gen_{}_{}{}{}_{}{}_{}.png".format(acgan._get_file_name_suffix(target_epoch), now.year, now.month, now.day, now.hour, now.minute, gen_num)))
 			gen_num += 1
 	
 	if args.upscale:
