@@ -632,10 +632,14 @@ class SuperSampler(object):
 				
 		return array_to_img(figure)
 
-def get_latest_epoch():
-	matches = sorted(ckpt_dir.glob("params_generator_epoch_*"))
-	latest_epoch = re.findall(r'[0-9]+', str(matches[-1]))
-	return int(latest_epoch[0])
+def get_latest_epoch(acgan: ACGAN):
+	search_for = "params_generator_epoch_*"
+	if acgan.latent_size != 100:
+		search_for = "params_generator_latent_{}_epoch_*".format(acgan.latent_size)
+	matches = sorted(ckpt_dir.glob(search_for))
+	print("matches", matches)
+	latest_epoch = re.findall(r'[0-9]+', str(matches[-1])[:-5])
+	return int(latest_epoch[-1])
 
 if __name__ == "__main__":
 	acgan = ACGAN(tags=tags, latent_size=2000)
@@ -652,7 +656,7 @@ if __name__ == "__main__":
 
 	if args.generate > 0:
 		if not args.train:
-			target_epoch = get_latest_epoch()
+			target_epoch = get_latest_epoch(acgan)
 			print("loading acgan weights from epoch {}".format(target_epoch))
 			acgan.load_checkpoint(target_epoch)
 			print("loading supersampler weights")
@@ -680,7 +684,7 @@ if __name__ == "__main__":
 		target_path = Path(args.evaluate)
 
 		loss_list = []
-		for epoch in range(1, get_latest_epoch() + 1):
+		for epoch in range(1, get_latest_epoch(acgan) + 1):
 			print("Evaluating epoch {}...".format(epoch))
 			acgan.load_checkpoint(epoch)
 			loss_list.append((epoch, acgan.evaluate()))
