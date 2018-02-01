@@ -274,7 +274,7 @@ class ACGAN(object):
 	def train(self, epochs, resume=1, batch_size=32):
 		if resume > 1:
 			# We need to load weights from the last epoch
-			load_checkpoint(resume - 1)
+			self.load_checkpoint(resume - 1)
 
 		batch_gen = self.batch_generator()
 		train_history = defaultdict(list)
