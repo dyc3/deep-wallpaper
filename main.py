@@ -46,7 +46,7 @@ parser.add_argument("--gen-upscale", type=int, default=3, help="The number of ti
 parser.add_argument("--upscale", type=str)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
 
-parser.add_argument("--visualize", type=str, choices=["epochs", "layers"])
+parser.add_argument("--visualize", type=str, choices=["epochs", "layers", "model"])
 parser.add_argument("--evaluate", type=str, help="Evaluate all epochs and put into specified file, formatted as csv.")
 args = parser.parse_args()
 
@@ -757,6 +757,21 @@ if __name__ == "__main__":
 			img = visualize_activation(acgan.generator, layer_idx, verbose=True)
 			array_to_img(img).save(save_path)
 			print("saved to {}".format(str(save_path)))
+
+	elif args.visualize == "model":
+		from keras.models import model_from_json
+		from keras.utils import plot_model
+		if not (visualization_dir / "ACGAN").exists():
+			(visualization_dir / "ACGAN").mkdir(parents=True)
+		plot_model(acgan.combined, to_file=str(visualization_dir / "ACGAN" / "combined.png"), show_shapes=True)
+		def _visualize_sub_models(model):
+			assert isinstance(model, Model) or isinstance(model, Sequential)
+			for layer in model.layers:
+				if isinstance(layer, Model) or isinstance(layer, Sequential):
+					print(layer.name)
+					plot_model(layer, to_file=str(visualization_dir / "ACGAN" / "{}.png".format(layer.name)), show_shapes=True)
+					_visualize_sub_models(layer)
+		_visualize_sub_models(acgan.combined)
 
 	if args.export_model_json:
 		assert len(args.export_model_json) > 0
