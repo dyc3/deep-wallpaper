@@ -145,7 +145,7 @@ class ACGAN(object):
 		# label drawn from P_c, to image space (..., 28, 28, 1)
 		cnn = Sequential()
 
-		cnn.add(Dense(1024, input_dim=self.latent_size, activation='relu'))
+		cnn.add(Dense((self.latent_size + self.num_classes), input_dim=(self.latent_size + self.num_classes), activation='relu'))
 		cnn.add(Dense(128 * 16 * 9 * img_chns, activation='relu'))
 		cnn.add(Reshape((9, 16, 128 * img_chns)))
 
@@ -176,20 +176,18 @@ class ACGAN(object):
 			cnn.summary()
 
 		# this is the z space commonly refered to in GAN papers
-		latent = Input(shape=(self.latent_size, ), dtype="float32")
+		latent = Input(shape=(self.latent_size, ), dtype="float32", name="latent")
 
 		# this will be our label
-		image_class = Input(shape=(self.num_classes,), dtype="float32")
-
-		cls = Flatten()(Embedding(self.num_classes, self.latent_size, embeddings_initializer='glorot_normal')(image_class))
-		cls = Dense(self.latent_size)(cls)
-
+		image_class = Input(shape=(self.num_classes,), dtype="float32", name="tags")
+		cls = Dense(self.num_classes)(image_class)
+		
 		# hadamard product between z-space and a class conditional embedding
-		h = multiply([latent, cls])
+		h = concatenate([latent, cls])
 
 		fake_image = cnn(h)
 
-		return Model([latent, image_class], fake_image)
+		return Model([latent, image_class], fake_image, name="generator")
 
 	def build_discriminator(self):
 		assert self.num_classes > 0
@@ -227,7 +225,7 @@ class ACGAN(object):
 		fake = Dense(1, activation='sigmoid', name='generation')(features)
 		aux = Dense(self.num_classes, activation='softmax', name='auxiliary')(features)
 
-		return Model(image, [fake, aux])
+		return Model(image, [fake, aux], name="discriminator")
 
 	def build_combined(self):
 		assert self.latent_size > 0
@@ -239,8 +237,8 @@ class ACGAN(object):
 
 		self.discriminator.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1), loss=['binary_crossentropy', 'categorical_crossentropy'])
 
-		latent = Input(shape=(self.latent_size, ))
-		image_class = Input(shape=(self.num_classes,), dtype='float32')
+		latent = Input(shape=(self.latent_size, ), name="latent")
+		image_class = Input(shape=(self.num_classes,), dtype='float32', name="tags")
 
 		# get a fake image
 		fake = self.generator([latent, image_class])
@@ -642,7 +640,7 @@ def get_latest_epoch(acgan: ACGAN):
 	return int(latest_epoch[-1])
 
 if __name__ == "__main__":
-	acgan = ACGAN(tags=tags, latent_size=2000)
+	acgan = ACGAN(tags=tags, latent_size=4000)
 	supersampler = SuperSampler()
 
 	if args.train:
