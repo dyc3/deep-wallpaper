@@ -11,6 +11,15 @@ from Ui_ModelViewer import Ui_MainWindow
 from keras.models import load_model, model_from_json
 from keras.preprocessing.image import array_to_img, img_to_array
 
+class SliderFeature(QSlider):
+	def __init__(self, parent):
+		super(SliderFeature, self).__init__(parent)
+
+	def mousePressEvent(self, event):
+		if event.button() == Qt.RightButton:
+			self.setValue(0);
+		super().mousePressEvent(event)
+
 class ModelViewerWindow(Ui_MainWindow):
 	def __init__(self):
 		super(ModelViewerWindow, self).__init__()
@@ -105,7 +114,7 @@ class ModelViewerWindow(Ui_MainWindow):
 				lblFeatureIndex.setText(str(feature))
 				horizontalLayout.addWidget(lblFeatureIndex)
 
-				sliderFeatureValue = QSlider(frFeatureTemplate)
+				sliderFeatureValue = SliderFeature(frFeatureTemplate)
 				sliderFeatureValue.setMinimumSize(QSize(100, 0))
 				sliderFeatureValue.setOrientation(Qt.Horizontal)
 				sliderFeatureValue.setMinimum(-1000)
