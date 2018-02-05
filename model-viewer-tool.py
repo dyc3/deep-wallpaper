@@ -88,6 +88,18 @@ class ModelViewerWindow(Ui_MainWindow):
 			verticalLayout_2.setContentsMargins(0, 0, 0, 0)
 			verticalLayout_2.setSpacing(0)
 			verticalLayout_2.setObjectName("verticalLayout_2")
+
+			lblInputName = QLabel(grpInputTemplate)
+			lblInputName.setText(input_layer.name)
+			sizePolicy = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+			sizePolicy.setHorizontalStretch(0)
+			sizePolicy.setVerticalStretch(0)
+			sizePolicy.setHeightForWidth(lblInputName.sizePolicy().hasHeightForWidth())
+			lblInputName.setSizePolicy(sizePolicy)
+			lblInputName.setMinimumSize(QSize(20, 0))
+			lblInputName.setAlignment(Qt.AlignCenter)
+			lblInputName.setObjectName("lblInputName_{}".format(input_layer.name))
+
 			layer_sliders = []
 			for feature in range(input_layer.get_shape()[1]):
 				frFeatureTemplate = QFrame(grpInputTemplate)
