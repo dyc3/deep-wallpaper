@@ -46,7 +46,7 @@ parser.add_argument("--gen-upscale", type=int, default=3, help="The number of ti
 parser.add_argument("--upscale", type=str)
 parser.add_argument("--tags", nargs="+", help="Specify tags to use when generating images, otherwise random tags will be used.", default=[])
 
-parser.add_argument("--visualize", type=str, choices=["epochs", "layers", "model"])
+parser.add_argument("--visualize", type=str, choices=["epochs", "layers", "model", "traversal"])
 parser.add_argument("--evaluate", type=str, help="Evaluate all epochs and put into specified file, formatted as csv.")
 args = parser.parse_args()
 
@@ -420,7 +420,7 @@ class ACGAN(object):
 
 		return generator_test_loss, discriminator_test_loss
 
-	def generate(self, count=1, latent_space=None, tags=None) -> list:
+	def generate(self, count=1, latent_space=[], tags=[]) -> list:
 		"""
 		count: An int that determines the number of examples to generate. Must be 1 if latent_space is set.
 
@@ -431,16 +431,15 @@ class ACGAN(object):
 		Returns a list of PIL images.
 		"""
 		assert isinstance(count, int)
-		assert (latent_space != None and count == 1) or (latent_space == None and count >= 1)
-		assert latent_space == None or len(latent_space) == self.latent_size
-		assert len(tags) <= self.num_classes
+		assert (len(latent_space) == 0 and count >= 1) or (len(latent_space) == self.latent_size and count == 1)
+		assert len(tags) <= 0 or len(tags) <= self.num_classes
 
-		if latent_space == None:
+		if len(latent_space) == 0:
 			latent_space = np.random.uniform(-1, 1, (count, self.latent_size))
 		else:
-			latent_space = [latent_space]
+			latent_space = np.asarray([latent_space])
 
-		if tags == None:
+		if len(tags) == 0:
 			tags = self.random_tags()
 			print("using random tags:", tags)
 		else:
@@ -696,7 +695,7 @@ if __name__ == "__main__":
 	if args.visualize == "epochs":
 		visualization_path /= "preview/ACGAN"
 
-		noise = np.random.uniform(-1, 1, (1, latent_size))
+		noise = np.random.uniform(-1, 1, (1, acgan.latent_size))
 		if len(args.tags) == 0:
 			print("using random tags")
 			args.tags = acgan.random_tags()
@@ -770,6 +769,91 @@ if __name__ == "__main__":
 					plot_model(layer, to_file=str(visualization_dir / "ACGAN" / "{}.png".format(layer.name)), show_shapes=True)
 					_visualize_sub_models(layer)
 		_visualize_sub_models(acgan.combined)
+
+	elif args.visualize == "traversal":
+		from sklearn.manifold import TSNE
+		from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+		import matplotlib.pyplot as plt
+
+		acgan.load_checkpoint(get_latest_epoch(acgan))
+
+		samples = 300
+
+		noise = np.random.uniform(-1, 1, (samples, acgan.latent_size))
+		if len(args.tags) == 0:
+			print("using random tags")
+			args.tags = acgan.random_tags()
+		else:
+			print("using provided tags")
+		print("tags: {}".format(args.tags))
+
+		tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=500)
+		tsne_results = tsne.fit_transform(noise)
+		print(tsne_results.shape)
+		print(tsne_results[0])
+		# print(np.min(tsne_results))
+		# print(np.max(tsne_results))
+
+		print("generating")
+		img_graph = Image.new("RGB", (800, 800), "white")
+		fig, ax = plt.subplots()
+		for n in range(samples):
+			img = acgan.generate(latent_space=noise[n], tags=args.tags)[0]
+
+			# if ax is None:
+			ax = plt.gca()
+			image = np.asarray(img)
+			# try:
+			# 	image = plt.imread(img)
+			# except TypeError:
+			# 	# Likely already an array...
+			# 	pass
+			zoom = 1
+			im = OffsetImage(image, zoom=zoom)
+			x, y = np.atleast_1d(*tsne_results[n])
+			artists = []
+			for x0, y0 in zip(x, y):
+				ab = AnnotationBbox(im, (x0, y0), xycoords='data', frameon=False)
+				artists.append(ax.add_artist(ab))
+			ax.update_datalim(np.column_stack([x, y]))
+			ax.autoscale()
+		print("done, displaying...")
+		plt.show()
+
+		# https://stackoverflow.com/questions/22566284/matplotlib-how-to-plot-images-instead-of-points
+		# import numpy as np
+		# import matplotlib.pyplot as plt
+		# from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+		# from matplotlib.cbook import get_sample_data
+
+		# def main():
+		# 	x = np.linspace(0, 10, 20)
+		# 	y = np.cos(x)
+		# 	image_path = get_sample_data('ada.png')
+		# 	fig, ax = plt.subplots()
+		# 	imscatter(x, y, image_path, zoom=0.1, ax=ax)
+		# 	ax.plot(x, y)
+		# 	plt.show()
+
+		# def imscatter(x, y, image, ax=None, zoom=1):
+		# 	if ax is None:
+		# 		ax = plt.gca()
+		# 	try:
+		# 		image = plt.imread(image)
+		# 	except TypeError:
+		# 		# Likely already an array...
+		# 		pass
+		# 	im = OffsetImage(image, zoom=zoom)
+		# 	x, y = np.atleast_1d(x, y)
+		# 	artists = []
+		# 	for x0, y0 in zip(x, y):
+		# 		ab = AnnotationBbox(im, (x0, y0), xycoords='data', frameon=False)
+		# 		artists.append(ax.add_artist(ab))
+		# 	ax.update_datalim(np.column_stack([x, y]))
+		# 	ax.autoscale()
+		# 	return artists
+
+		
 
 	if args.export_model_json:
 		assert len(args.export_model_json) > 0
