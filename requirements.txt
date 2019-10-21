@@ -34,7 +34,7 @@ pytz==2017.3
 PyWavelets==0.5.2
 PyYAML==3.12
 requests==2.20.0
-rope==0.10.7
+rope==0.11.0
 scikit-image==0.13.1
 scikit-learn==0.19.1
 scipy==1.0.0
