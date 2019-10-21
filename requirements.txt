@@ -32,7 +32,7 @@ PyQt5==5.9
 python-dateutil==2.6.1
 pytz==2017.3
 PyWavelets==0.5.2
-PyYAML==3.12
+PyYAML==5.1
 requests==2.20.0
 rope==0.10.7
 scikit-image==0.13.1
